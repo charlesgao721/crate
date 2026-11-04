@@ -1,0 +1,1 @@
+- [Crate feature scope](crate-feature-scope.md) — implement only the feature requested for each prompt; the user handles Git branches and pull requests.
