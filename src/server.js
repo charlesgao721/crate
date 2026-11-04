@@ -5,6 +5,7 @@ const session = require("express-session");
 const connectPgSimple = require("connect-pg-simple");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
+const validateRecord = require("../public/record-validation");
 const {
   authPage,
   collectionPage,
@@ -92,29 +93,68 @@ function validEmail(value) {
     && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
-function renderAuth(res, { mode, csrf, error, email, displayName, status = 200 }) {
+function renderAuth(res, {
+  mode,
+  csrf,
+  error,
+  fieldErrors,
+  email,
+  displayName,
+  status = 200,
+}) {
   return res.status(status).type("html").send(
-    authPage({ mode, csrfToken: csrf, error, email, displayName }),
+    authPage({ mode, csrfToken: csrf, error, fieldErrors, email, displayName }),
   );
 }
 
-function formText(value) {
-  return typeof value === "string" ? value.trim() : "";
+function recordFormValues(body = {}) {
+  return {
+    title: typeof body.title === "string" ? body.title : "",
+    artistName: typeof body.artistName === "string" ? body.artistName : "",
+    releaseYear: typeof body.releaseYear === "string" ? body.releaseYear : "",
+    format: typeof body.format === "string" ? body.format : "",
+    genre: typeof body.genre === "string" ? body.genre : "",
+    condition: typeof body.condition === "string" ? body.condition : "",
+    pricePaid: typeof body.pricePaid === "string" ? body.pricePaid : "",
+    purchaseDate: typeof body.purchaseDate === "string" ? body.purchaseDate : "",
+    rating: typeof body.rating === "string" ? body.rating : "",
+    notes: typeof body.notes === "string" ? body.notes : "",
+  };
 }
 
-function recordValues(body = {}) {
+function recordDatabaseValues(formValues) {
   return {
-    title: formText(body.title),
-    artistName: formText(body.artistName),
-    releaseYear: body.releaseYear ? Number(body.releaseYear) : null,
-    format: formText(body.format),
-    genre: formText(body.genre) || null,
-    condition: formText(body.condition) || null,
-    pricePaid: body.pricePaid ? body.pricePaid : null,
-    purchaseDate: body.purchaseDate || null,
-    rating: body.rating ? Number(body.rating) : null,
-    notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+    title: formValues.title.trim(),
+    artistName: formValues.artistName.trim(),
+    releaseYear: formValues.releaseYear.trim() ? Number(formValues.releaseYear) : null,
+    format: formValues.format.trim(),
+    genre: formValues.genre.trim() || null,
+    condition: formValues.condition.trim() || null,
+    pricePaid: formValues.pricePaid.trim() ? formValues.pricePaid.trim() : null,
+    purchaseDate: formValues.purchaseDate.trim() || null,
+    rating: formValues.rating.trim() ? Number(formValues.rating) : null,
+    notes: formValues.notes.trim() || null,
   };
+}
+
+function validateRecordSubmission(body = {}) {
+  const formValues = recordFormValues(body);
+  const errors = validateRecord(formValues);
+  return {
+    formValues,
+    errors,
+    values: Object.keys(errors).length ? null : recordDatabaseValues(formValues),
+  };
+}
+
+function renderRecordValidationErrors(req, res, { mode, formValues, errors, recordId }) {
+  return res.status(400).type("html").send(recordFormPage({
+    mode,
+    displayName: req.session.displayName,
+    csrfToken: csrfToken(req),
+    record: { ...formValues, ...(recordId ? { id: recordId } : {}) },
+    errors,
+  }));
 }
 
 async function findOrCreateArtist(client, userId, artistName) {
@@ -163,32 +203,28 @@ app.post("/signup", requireCsrf, async (req, res, next) => {
     : "";
   const email = normalizeEmail(req.body.email);
   const password = typeof req.body.password === "string" ? req.body.password : "";
+  const fieldErrors = {};
+  let error;
 
   if (displayName.length < 1 || displayName.length > 60) {
-    return renderAuth(res, {
-      mode: "signup",
-      csrf: csrfToken(req),
-      error: "Please enter a name between 1 and 60 characters.",
-      email,
-      displayName,
-      status: 400,
-    });
+    error = "Please enter a name between 1 and 60 characters.";
   }
-  if (!validEmail(email)) {
-    return renderAuth(res, {
-      mode: "signup",
-      csrf: csrfToken(req),
-      error: "Enter a valid email address.",
-      email,
-      displayName,
-      status: 400,
-    });
+  if (!email) {
+    fieldErrors.email = "Please enter your email address";
+  } else if (!validEmail(email)) {
+    fieldErrors.email = "Please enter a valid email address";
   }
-  if (password.length < 8 || Buffer.byteLength(password, "utf8") > 72) {
+  if (password.length < 8) {
+    fieldErrors.password = "Password must be at least 8 characters";
+  } else if (Buffer.byteLength(password, "utf8") > 72) {
+    fieldErrors.password = "Password must be no more than 72 bytes";
+  }
+  if (error || Object.keys(fieldErrors).length) {
     return renderAuth(res, {
       mode: "signup",
       csrf: csrfToken(req),
-      error: "Use a password of at least 8 characters and no more than 72 bytes.",
+      error,
+      fieldErrors,
       email,
       displayName,
       status: 400,
@@ -208,7 +244,9 @@ app.post("/signup", requireCsrf, async (req, res, next) => {
       return renderAuth(res, {
         mode: "signup",
         csrf: csrfToken(req),
-        error: "An account with that email already exists. Log in instead.",
+        fieldErrors: {
+          email: "An account with that email is already registered. Log in instead.",
+        },
         email,
         displayName,
         status: 409,
@@ -312,7 +350,15 @@ app.get("/records/new", async (req, res, next) => {
 });
 
 app.post("/records", requireCsrf, async (req, res, next) => {
-  const values = recordValues(req.body);
+  const validation = validateRecordSubmission(req.body);
+  if (Object.keys(validation.errors).length) {
+    return renderRecordValidationErrors(req, res, {
+      mode: "create",
+      formValues: validation.formValues,
+      errors: validation.errors,
+    });
+  }
+  const { values } = validation;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");
@@ -388,7 +434,25 @@ app.get("/records/:id/edit", async (req, res, next) => {
 app.post("/records/:id/edit", requireCsrf, async (req, res, next) => {
   const recordId = Number(req.params.id);
   if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
-  const values = recordValues(req.body);
+  const validation = validateRecordSubmission(req.body);
+  if (Object.keys(validation.errors).length) {
+    try {
+      const ownedRecord = await pool.query(
+        "SELECT id FROM records WHERE id = $1 AND user_id = $2",
+        [recordId, req.session.userId],
+      );
+      if (!ownedRecord.rowCount) return notFound(res);
+      return renderRecordValidationErrors(req, res, {
+        mode: "edit",
+        formValues: validation.formValues,
+        errors: validation.errors,
+        recordId,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  }
+  const { values } = validation;
   const client = await pool.connect();
   try {
     await client.query("BEGIN");

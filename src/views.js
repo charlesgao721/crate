@@ -8,6 +8,11 @@ function escapeHtml(value = "") {
   })[character]);
 }
 
+function fieldError(errors, name) {
+  if (!errors?.[name]) return "";
+  return `<span class="field-error" id="${name}-error" role="alert">${escapeHtml(errors[name])}</span>`;
+}
+
 function page({ title, body, pageClass = "" }) {
   return `<!doctype html>
 <html lang="en">
@@ -34,7 +39,14 @@ function brand({ compact = false } = {}) {
   </a>`;
 }
 
-function authPage({ mode, csrfToken, error = "", email = "", displayName = "" }) {
+function authPage({
+  mode,
+  csrfToken,
+  error = "",
+  fieldErrors = {},
+  email = "",
+  displayName = "",
+}) {
   const isSignup = mode === "signup";
   const title = isSignup ? "Start your collection" : "Welcome back";
   const intro = isSignup
@@ -83,17 +95,19 @@ function authPage({ mode, csrfToken, error = "", email = "", displayName = "" })
           <p class="eyebrow">${isSignup ? "MAKE YOURSELF AT HOME" : "BACK TO THE MUSIC"}</p>
           <h2>${title}</h2>
           <p class="auth-intro">${intro}</p>
-          <form method="post" action="/${mode}" class="auth-form">
+          <form method="post" action="/${mode}" class="auth-form"${isSignup ? " novalidate" : ""}>
             <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
             ${errorBlock}
             ${fields}
             <label class="field">
               <span>Email address</span>
               <input name="email" type="email" autocomplete="email" maxlength="254" placeholder="you@example.com" value="${escapeHtml(email)}" required>
+              ${fieldError(fieldErrors, "email")}
             </label>
             <label class="field">
               <span>Password</span>
               <input name="password" type="password" autocomplete="${isSignup ? "new-password" : "current-password"}" minlength="${isSignup ? "8" : "1"}" maxlength="72" placeholder="${isSignup ? "At least 8 characters" : "Enter your password"}" required>
+              ${fieldError(fieldErrors, "password")}
             </label>
             <button class="button button-primary" type="submit">${submitLabel}<span aria-hidden="true">↗</span></button>
           </form>
@@ -166,16 +180,18 @@ function collectionPage({ displayName, csrfToken, records }) {
   });
 }
 
-function recordFormPage({ mode, displayName, csrfToken, record = {} }) {
+function recordFormPage({ mode, displayName, csrfToken, record = {}, errors = {} }) {
   const isEdit = mode === "edit";
   const action = isEdit ? `/records/${escapeHtml(record.id)}/edit` : "/records";
   const title = isEdit ? "Edit record" : "Add a record";
   const submit = isEdit ? "Save changes" : "Add to collection";
-  const year = record.release_year ?? "";
-  const price = record.price_paid ?? "";
-  const date = dateInputValue(record.purchase_date);
-  const rating = record.rating ?? "";
+  const value = (camelCase, snakeCase) => record[camelCase] ?? record[snakeCase] ?? "";
+  const year = value("releaseYear", "release_year");
+  const price = value("pricePaid", "price_paid");
+  const date = dateInputValue(value("purchaseDate", "purchase_date"));
+  const rating = value("rating", "rating");
   const condition = record.condition ?? "";
+  const artistName = value("artistName", "artist_name");
   const currentYear = new Date().getFullYear();
   const formatOptions = ["LP", "EP", "7-inch", "Box set"];
   const conditionOptions = ["Mint", "VG+", "VG", "G"];
@@ -191,20 +207,23 @@ function recordFormPage({ mode, displayName, csrfToken, record = {} }) {
           <h1>${title}<span class="heading-period">.</span></h1>
           <p>${isEdit ? "Update the details of this record." : "Add a record to your collection."}</p>
         </div>
-        <form class="record-form" method="post" action="${action}">
+        <form class="record-form" method="post" action="${action}" novalidate data-record-form data-current-year="${currentYear}">
           <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
           <label class="field">
             <span>Title <b aria-hidden="true">*</b></span>
             <input name="title" type="text" value="${escapeHtml(record.title ?? "")}" required>
+            ${fieldError(errors, "title")}
           </label>
           <label class="field">
             <span>Artist <b aria-hidden="true">*</b></span>
-            <input name="artistName" type="text" value="${escapeHtml(record.artist_name ?? "")}" placeholder="Type an artist name" required>
+            <input name="artistName" type="text" value="${escapeHtml(artistName)}" placeholder="Type an artist name" required>
+            ${fieldError(errors, "artistName")}
           </label>
           <div class="form-row">
             <label class="field">
               <span>Release year</span>
               <input name="releaseYear" type="number" min="1900" max="${currentYear}" value="${escapeHtml(year)}">
+              ${fieldError(errors, "releaseYear")}
             </label>
             <label class="field">
               <span>Format <b aria-hidden="true">*</b></span>
@@ -212,6 +231,7 @@ function recordFormPage({ mode, displayName, csrfToken, record = {} }) {
                 <option value="">Choose a format</option>
                 ${formatOptions.map((option) => `<option value="${option}"${record.format === option ? " selected" : ""}>${option}</option>`).join("")}
               </select>
+              ${fieldError(errors, "format")}
             </label>
           </div>
           <div class="form-row">
@@ -230,7 +250,8 @@ function recordFormPage({ mode, displayName, csrfToken, record = {} }) {
           <div class="form-row">
             <label class="field">
               <span>Price paid</span>
-              <input name="pricePaid" type="number" step="0.01" value="${escapeHtml(price)}" placeholder="0.00">
+              <input name="pricePaid" type="number" min="0" step="0.01" value="${escapeHtml(price)}" placeholder="0.00">
+              ${fieldError(errors, "pricePaid")}
             </label>
             <label class="field">
               <span>Purchase date</span>
@@ -240,6 +261,7 @@ function recordFormPage({ mode, displayName, csrfToken, record = {} }) {
           <label class="field field-rating">
             <span>Rating</span>
             <input name="rating" type="number" min="1" max="5" step="1" value="${escapeHtml(rating)}" placeholder="1 to 5">
+              ${fieldError(errors, "rating")}
           </label>
           <label class="field">
             <span>Notes</span>
@@ -250,6 +272,7 @@ function recordFormPage({ mode, displayName, csrfToken, record = {} }) {
             <button class="button button-primary" type="submit">${submit}<span aria-hidden="true">↗</span></button>
           </div>
         </form>
+        <script src="/record-validation.js" defer></script>
       </main>`,
   });
 }
