@@ -42,6 +42,14 @@ CREATE TABLE IF NOT EXISTS records (
 CREATE INDEX IF NOT EXISTS records_user_id_idx ON records (user_id);
 CREATE INDEX IF NOT EXISTS records_artist_user_idx ON records (artist_id, user_id);
 
+CREATE TABLE IF NOT EXISTS stars (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  record_id INTEGER NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT stars_user_record_key UNIQUE (user_id, record_id)
+);
+
 CREATE TABLE IF NOT EXISTS "session" (
   "sid" VARCHAR NOT NULL COLLATE "default",
   "sess" JSON NOT NULL,

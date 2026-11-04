@@ -122,11 +122,13 @@ function authPage({
 function appHeader({ displayName, csrfToken, activePage = "" }) {
   const collectionActive = activePage === "collection" ? " nav-link-active" : "";
   const artistsActive = activePage === "artists" ? " nav-link-active" : "";
+  const starredActive = activePage === "starred" ? " nav-link-active" : "";
   return `<header class="site-header">
     ${brand({ compact: true })}
     <nav class="main-nav" aria-label="Main navigation">
       <a class="nav-link${collectionActive}" href="/collection">My Collection</a>
       <a class="nav-link${artistsActive}" href="/artists">Artists</a>
+      <a class="nav-link${starredActive}" href="/starred">Starred</a>
     </nav>
     <div class="header-right">
       <span class="header-greeting">Hi, ${escapeHtml(displayName)}</span>
@@ -138,46 +140,70 @@ function appHeader({ displayName, csrfToken, activePage = "" }) {
   </header>`;
 }
 
-function collectionPage({ displayName, csrfToken, records }) {
+function starToggleForm({ record, csrfToken, returnTo, className = "" }) {
+  const isStarred = Boolean(record.is_starred);
+  const actionLabel = isStarred ? "Remove star from" : "Star";
+  return `<form class="star-toggle-form${className ? ` ${className}` : ""}" method="post" action="/records/${escapeHtml(record.id)}/star">
+    <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
+    <input type="hidden" name="returnTo" value="${escapeHtml(returnTo)}">
+    <button class="star-toggle-button${isStarred ? " star-toggle-active" : ""}" type="submit" aria-label="${actionLabel} ${escapeHtml(record.title)}" aria-pressed="${isStarred}" title="${actionLabel} ${escapeHtml(record.title)}">
+      <span aria-hidden="true">${isStarred ? "★" : "☆"}</span>
+    </button>
+  </form>`;
+}
+
+function recordCard(record, { csrfToken, returnTo }) {
+  return `<article class="record-card">
+    <a class="record-card-link" href="/records/${escapeHtml(record.id)}">
+      <span class="record-card-cover" aria-hidden="true">
+        <span class="cover-sun"></span>
+        <span class="cover-initial">${escapeHtml(record.title.trim().charAt(0).toUpperCase())}</span>
+        <span class="cover-lines"></span>
+      </span>
+      <span class="record-card-copy">
+        <span class="record-card-title">${escapeHtml(record.title)}</span>
+        <span class="record-card-artist">${escapeHtml(record.artist_name)}</span>
+        <span class="record-card-meta">${record.release_year ? escapeHtml(record.release_year) : "Year unknown"} <span aria-hidden="true">·</span> ${record.rating ? `${escapeHtml(record.rating)} / 5` : "Unrated"}</span>
+      </span>
+    </a>
+    ${starToggleForm({ record, csrfToken, returnTo })}
+  </article>`;
+}
+
+function collectionPage({ displayName, csrfToken, records, pageMode = "collection" }) {
+  const isStarredPage = pageMode === "starred";
+  const heading = isStarredPage ? "Starred" : "My Collection";
+  const returnTo = isStarredPage ? "/starred" : "/collection";
   const content = records.length
-    ? `<div class="record-grid">
-        ${records.map((record) => `<a class="record-card" href="/records/${escapeHtml(record.id)}">
-          <span class="record-card-cover" aria-hidden="true">
-            <span class="cover-sun"></span>
-            <span class="cover-initial">${escapeHtml(record.title.trim().charAt(0).toUpperCase())}</span>
-            <span class="cover-lines"></span>
-          </span>
-          <span class="record-card-copy">
-            <span class="record-card-title">${escapeHtml(record.title)}</span>
-            <span class="record-card-artist">${escapeHtml(record.artist_name)}</span>
-            <span class="record-card-meta">${record.release_year ? escapeHtml(record.release_year) : "Year unknown"} <span aria-hidden="true">·</span> ${record.rating ? `${escapeHtml(record.rating)} / 5` : "Unrated"}</span>
-          </span>
-        </a>`).join("")}
-      </div>`
+    ? `<div class="record-grid">${records.map((record) => recordCard(record, { csrfToken, returnTo })).join("")}</div>`
     : `<section class="empty-state" aria-labelledby="empty-title">
         <div class="empty-record" aria-hidden="true"><span></span></div>
-        <p class="eyebrow">THE FIRST GROOVE</p>
-        <h2 id="empty-title">Your shelves are waiting.</h2>
-        <p>Your collection is empty for now. Start with a record you love.</p>
+        <p class="eyebrow">${isStarredPage ? "KEEP YOUR FAVORITES CLOSE" : "THE FIRST GROOVE"}</p>
+        <h2 id="empty-title">${isStarredPage ? "No starred records yet." : "Your shelves are waiting."}</h2>
+        <p>${isStarredPage ? "Star a record in your collection and it will show up here." : "Your collection is empty for now. Start with a record you love."}</p>
       </section>`;
 
   return page({
-    title: "My Collection",
+    title: heading,
     pageClass: "collection-page",
-    body: `${appHeader({ displayName, csrfToken, activePage: "collection" })}
+    body: `${appHeader({ displayName, csrfToken, activePage: isStarredPage ? "starred" : "collection" })}
     <main class="collection-main">
       <div class="collection-heading">
         <div class="collection-title-group">
-          <p class="eyebrow">YOUR RECORDS, ALL IN ONE PLACE</p>
-          <h1>My Collection<span class="heading-period">.</span></h1>
-          <p class="collection-intro">${records.length} ${records.length === 1 ? "record" : "records"} in your collection</p>
+          <p class="eyebrow">${isStarredPage ? "YOUR GO-TO RECORDS" : "YOUR RECORDS, ALL IN ONE PLACE"}</p>
+          <h1>${heading}<span class="heading-period">.</span></h1>
+          <p class="collection-intro">${records.length} ${records.length === 1 ? "record" : "records"} ${isStarredPage ? "starred" : "in your collection"}</p>
         </div>
-        <a class="button button-primary add-record-button" href="/records/new">Add record <span aria-hidden="true">+</span></a>
+        ${isStarredPage ? "" : `<a class="button button-primary add-record-button" href="/records/new">Add record <span aria-hidden="true">+</span></a>`}
       </div>
       ${content}
       <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
     </main>`,
   });
+}
+
+function starredPage({ displayName, csrfToken, records }) {
+  return collectionPage({ displayName, csrfToken, records, pageMode: "starred" });
 }
 
 function recordFormPage({ mode, displayName, csrfToken, record = {}, errors = {} }) {
@@ -333,6 +359,7 @@ function recordDetailPage({ displayName, csrfToken, record }) {
             <h1>${escapeHtml(record.title)}<span class="heading-period">.</span></h1>
             <p class="detail-artist"><a href="/artists/${escapeHtml(record.artist_id)}">${escapeHtml(record.artist_name)}</a></p>
             <div class="detail-actions">
+              ${starToggleForm({ record, csrfToken, returnTo: `/records/${record.id}`, className: "detail-star-toggle" })}
               <a class="button button-primary" href="/records/${escapeHtml(record.id)}/edit">Edit record</a>
               <a class="button button-danger" href="/records/${escapeHtml(record.id)}/delete">Delete</a>
             </div>
@@ -468,6 +495,7 @@ function artistDetailPage({ displayName, csrfToken, artist, records }) {
 module.exports = {
   authPage,
   collectionPage,
+  starredPage,
   artistsPage,
   artistDetailPage,
   recordFormPage,

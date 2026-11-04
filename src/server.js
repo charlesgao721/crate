@@ -9,6 +9,7 @@ const validateRecord = require("../public/record-validation");
 const {
   authPage,
   collectionPage,
+  starredPage,
   artistsPage,
   artistDetailPage,
   recordFormPage,
@@ -309,9 +310,11 @@ app.get("/collection", async (req, res, next) => {
       ),
       pool.query(
         `SELECT r.id, r.title, r.release_year, r.rating,
-                a.id AS artist_id, a.name AS artist_name
+                a.id AS artist_id, a.name AS artist_name,
+                (s.id IS NOT NULL) AS is_starred
          FROM records r
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         LEFT JOIN stars s ON s.record_id = r.id AND s.user_id = $1
          WHERE r.user_id = $1
          ORDER BY r.created_at DESC, r.id DESC`,
         [req.session.userId],
@@ -321,6 +324,38 @@ app.get("/collection", async (req, res, next) => {
       return req.session.destroy(() => res.redirect(303, "/login"));
     }
     res.type("html").send(collectionPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      records: recordsResult.rows,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/starred", async (req, res, next) => {
+  try {
+    const [userResult, recordsResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT r.id, r.title, r.release_year, r.rating,
+                a.id AS artist_id, a.name AS artist_name,
+                TRUE AS is_starred
+         FROM stars s
+         JOIN records r ON r.id = s.record_id AND r.user_id = s.user_id
+         JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         WHERE s.user_id = $1 AND r.user_id = $1
+         ORDER BY s.created_at DESC, s.id DESC`,
+        [req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    res.type("html").send(starredPage({
       displayName: userResult.rows[0].display_name,
       csrfToken: csrfToken(req),
       records: recordsResult.rows,
@@ -500,6 +535,56 @@ app.post("/records/:id/edit", requireCsrf, async (req, res, next) => {
   }
 });
 
+app.post("/records/:id/star", requireCsrf, async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const ownedRecord = await client.query(
+      "SELECT id FROM records WHERE id = $1 AND user_id = $2 FOR UPDATE",
+      [recordId, req.session.userId],
+    );
+    if (!ownedRecord.rowCount) {
+      await client.query("ROLLBACK");
+      return notFound(res);
+    }
+
+    const existingStar = await client.query(
+      "SELECT id FROM stars WHERE user_id = $1 AND record_id = $2 FOR UPDATE",
+      [req.session.userId, recordId],
+    );
+    if (existingStar.rowCount) {
+      await client.query(
+        "DELETE FROM stars WHERE user_id = $1 AND record_id = $2",
+        [req.session.userId, recordId],
+      );
+    } else {
+      await client.query(
+        `INSERT INTO stars (user_id, record_id)
+         VALUES ($1, $2)
+         ON CONFLICT (user_id, record_id) DO NOTHING`,
+        [req.session.userId, recordId],
+      );
+    }
+    await client.query("COMMIT");
+
+    const requestedReturn = req.body.returnTo;
+    const returnPath = requestedReturn === "/collection"
+      || requestedReturn === "/starred"
+      || requestedReturn === `/records/${recordId}`
+      ? requestedReturn
+      : `/records/${recordId}`;
+    res.redirect(303, returnPath);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
 app.get("/records/:id/delete", async (req, res, next) => {
   const recordId = Number(req.params.id);
   if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
@@ -556,7 +641,11 @@ app.get("/records/:id", async (req, res, next) => {
         `SELECT r.id, r.title, r.release_year, r.format, r.genre,
                 r.condition, r.price_paid, r.purchase_date, r.rating,
                 r.notes, r.created_at, a.id AS artist_id,
-                a.name AS artist_name
+                a.name AS artist_name,
+                EXISTS (
+                  SELECT 1 FROM stars s
+                  WHERE s.record_id = r.id AND s.user_id = $2
+                ) AS is_starred
          FROM records r
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
          WHERE r.id = $1 AND r.user_id = $2`,
