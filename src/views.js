@@ -123,12 +123,14 @@ function appHeader({ displayName, csrfToken, activePage = "" }) {
   const collectionActive = activePage === "collection" ? " nav-link-active" : "";
   const artistsActive = activePage === "artists" ? " nav-link-active" : "";
   const starredActive = activePage === "starred" ? " nav-link-active" : "";
+  const dashboardActive = activePage === "dashboard" ? " nav-link-active" : "";
   return `<header class="site-header">
     ${brand({ compact: true })}
     <nav class="main-nav" aria-label="Main navigation">
       <a class="nav-link${collectionActive}" href="/collection">My Collection</a>
       <a class="nav-link${artistsActive}" href="/artists">Artists</a>
       <a class="nav-link${starredActive}" href="/starred">Starred</a>
+      <a class="nav-link${dashboardActive}" href="/dashboard">Dashboard</a>
     </nav>
     <div class="header-right">
       <span class="header-greeting">Hi, ${escapeHtml(displayName)}</span>
@@ -282,6 +284,66 @@ function collectionPage({
 
 function starredPage({ displayName, csrfToken, records }) {
   return collectionPage({ displayName, csrfToken, records, pageMode: "starred" });
+}
+
+function dashboardPage({ displayName, csrfToken, stats }) {
+  const averageRating = stats.averageRating === null
+    ? "No ratings yet"
+    : `${stats.averageRating.toFixed(1)} / 5`;
+  const maximumGenreCount = stats.genreCounts.reduce(
+    (maximum, item) => Math.max(maximum, item.count),
+    0,
+  );
+  const genreChart = stats.genreCounts.length
+    ? `<div class="genre-chart" role="list" aria-label="Number of records by genre">
+        ${stats.genreCounts.map(({ genre, count }) => {
+          const barWidth = maximumGenreCount ? (count / maximumGenreCount) * 100 : 0;
+          return `<div class="genre-chart-row" role="listitem" aria-label="${escapeHtml(genre)}: ${count} ${count === 1 ? "record" : "records"}">
+            <span class="genre-chart-label">${escapeHtml(genre)}</span>
+            <span class="genre-chart-track" aria-hidden="true"><span style="width: ${barWidth.toFixed(2)}%"></span></span>
+            <span class="genre-chart-count">${count}</span>
+          </div>`;
+        }).join("")}
+      </div>`
+    : `<p class="genre-chart-empty">Add records to see your genre breakdown.</p>`;
+
+  return page({
+    title: "Dashboard",
+    pageClass: "dashboard-page",
+    body: `${appHeader({ displayName, csrfToken, activePage: "dashboard" })}
+      <main class="dashboard-main">
+        <div class="dashboard-heading">
+          <p class="eyebrow">YOUR COLLECTION AT A GLANCE</p>
+          <h1>Dashboard<span class="heading-period">.</span></h1>
+          <p>See the shape of your record collection.</p>
+        </div>
+        <section class="dashboard-stats" aria-label="Collection statistics">
+          <article class="dashboard-stat">
+            <span class="dashboard-stat-label">Total records</span>
+            <strong class="dashboard-stat-value">${stats.totalRecords}</strong>
+          </article>
+          <article class="dashboard-stat">
+            <span class="dashboard-stat-label">Total spent</span>
+            <strong class="dashboard-stat-value">$${stats.totalSpent.toFixed(2)}</strong>
+          </article>
+          <article class="dashboard-stat">
+            <span class="dashboard-stat-label">Average rating</span>
+            <strong class="dashboard-stat-value${stats.averageRating === null ? " dashboard-stat-empty" : ""}">${averageRating}</strong>
+          </article>
+        </section>
+        <section class="dashboard-chart-card" aria-labelledby="genre-chart-title">
+          <div class="dashboard-chart-heading">
+            <div>
+              <p class="eyebrow">WHAT'S IN YOUR CRATE</p>
+              <h2 id="genre-chart-title">Records by genre</h2>
+            </div>
+            <span class="dashboard-chart-total">${stats.totalRecords} ${stats.totalRecords === 1 ? "record" : "records"}</span>
+          </div>
+          ${genreChart}
+        </section>
+        <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
+      </main>`,
+  });
 }
 
 function recordFormPage({ mode, displayName, csrfToken, record = {}, errors = {} }) {
@@ -574,6 +636,7 @@ module.exports = {
   authPage,
   collectionPage,
   starredPage,
+  dashboardPage,
   artistsPage,
   artistDetailPage,
   recordFormPage,
