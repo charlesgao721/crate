@@ -19,7 +19,9 @@ The development PostgreSQL database has the schema in `db/schema.sql`. It contai
 
 - `/signup` creates an account.
 - `/login` starts a session.
-- `/collection` is protected and shows the signed-in user's empty collection.
+- `/collection` shows the signed-in user's record cards.
+- `/records/new` adds a record; `/records/:id` shows its details; `/records/:id/edit` edits it.
+- `/records/:id/delete` asks for confirmation before deletion.
 - `/artists` lists the signed-in user's artists.
 - `/artists/:id` shows that artist and their records; requests for another user's artist return 404.
 - `POST /logout` ends the session.
