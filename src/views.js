@@ -157,6 +157,7 @@ function starToggleForm({ record, csrfToken, returnTo, className = "" }) {
 }
 
 function recordCard(record, { csrfToken, returnTo }) {
+  const playCount = Number(record.play_count) || 0;
   return `<article class="record-card">
     <a class="record-card-link" href="/records/${escapeHtml(record.id)}">
       <span class="record-card-cover" aria-hidden="true">
@@ -168,6 +169,7 @@ function recordCard(record, { csrfToken, returnTo }) {
         <span class="record-card-title">${escapeHtml(record.title)}</span>
         <span class="record-card-artist">${escapeHtml(record.artist_name)}</span>
         <span class="record-card-meta">${record.release_year ? escapeHtml(record.release_year) : "Year unknown"} <span aria-hidden="true">·</span> ${record.rating ? `${escapeHtml(record.rating)} / 5` : "Unrated"}</span>
+        <span class="record-card-play-count"><span aria-hidden="true">↻</span> ${playCount} ${playCount === 1 ? "spin" : "spins"}</span>
       </span>
     </a>
     ${starToggleForm({ record, csrfToken, returnTo })}
@@ -186,6 +188,7 @@ function collectionFilterForm({ filters, genreOptions, formatOptions }) {
     ["rating", "Highest rated"],
     ["year", "Release year"],
     ["price", "Price paid"],
+    ["plays", "Most played"],
   ];
 
   return `<form class="collection-filters" method="get" action="/collection" role="search">
@@ -532,7 +535,8 @@ function detailValue(value) {
     : escapeHtml(value);
 }
 
-function recordDetailPage({ displayName, csrfToken, record }) {
+function recordDetailPage({ displayName, csrfToken, record, plays }) {
+  const today = new Date().toISOString().slice(0, 10);
   const price = record.price_paid === null || record.price_paid === undefined
     ? "—"
     : `$${Number(record.price_paid).toFixed(2)}`;
@@ -581,6 +585,39 @@ function recordDetailPage({ displayName, csrfToken, record }) {
           <div class="record-field record-field-wide"><span>Notes</span><p class="record-notes">${detailValue(record.notes)}</p></div>
           <div class="record-field record-field-wide"><span>Added to Crate</span><p>${addedDate}</p></div>
         </section>
+        <section class="spin-log-section" aria-label="Spin log">
+          <div class="spin-log-form-card">
+            <div class="spin-log-section-heading">
+              <p class="eyebrow">KEEP A LISTENING HISTORY</p>
+              <h2>Log a spin</h2>
+            </div>
+            <form class="spin-log-form" method="post" action="/records/${escapeHtml(record.id)}/plays">
+              <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
+              <label class="spin-log-field">
+                <span>Played on</span>
+                <input type="date" name="playedOn" value="${today}" required data-spin-date>
+              </label>
+              <label class="spin-log-field">
+                <span>Note <small>Optional</small></span>
+                <textarea name="note" rows="2" placeholder="e.g. side B only"></textarea>
+              </label>
+              <button class="button button-primary" type="submit">Log a spin</button>
+            </form>
+          </div>
+          <div class="spin-log-history">
+            <div class="spin-log-history-heading">
+              <h2>Past spins</h2>
+              <span>${plays.length} ${plays.length === 1 ? "spin" : "spins"}</span>
+            </div>
+            ${plays.length
+              ? `<ol class="spin-log-list">${plays.map((play) => `<li class="spin-log-entry">
+                  <time datetime="${escapeHtml(String(play.played_on).slice(0, 10))}">${formatDate(play.played_on)}</time>
+                  ${play.note ? `<p>${escapeHtml(play.note)}</p>` : ""}
+                </li>`).join("")}</ol>`
+              : `<p class="spin-log-empty">No spins logged yet.</p>`}
+          </div>
+        </section>
+        <script src="/spin-log.js" defer></script>
       </main>`,
   });
 }

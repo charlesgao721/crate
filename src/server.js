@@ -37,6 +37,7 @@ const collectionSortOrders = Object.freeze({
   rating: "r.rating DESC NULLS LAST, r.created_at DESC, r.id DESC",
   year: "r.release_year DESC NULLS LAST, r.created_at DESC, r.id DESC",
   price: "r.price_paid DESC NULLS LAST, r.created_at DESC, r.id DESC",
+  plays: "play_counts.play_count DESC, r.created_at DESC, r.id DESC",
 });
 const dummyPasswordHash = bcrypt.hashSync(crypto.randomBytes(32).toString("hex"), 12);
 
@@ -102,6 +103,12 @@ function normalizeEmail(value) {
 function validEmail(value) {
   return value.length <= 254
     && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function validIsoDate(value) {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value;
 }
 
 function renderAuth(res, {
@@ -329,10 +336,16 @@ app.get("/collection", async (req, res, next) => {
       pool.query(
         `SELECT r.id, r.title, r.release_year, r.rating,
                 a.id AS artist_id, a.name AS artist_name,
-                (s.id IS NOT NULL) AS is_starred
+                (s.id IS NOT NULL) AS is_starred,
+                play_counts.play_count AS play_count
          FROM records r
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
          LEFT JOIN stars s ON s.record_id = r.id AND s.user_id = $1
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS play_count
+           FROM plays p
+           WHERE p.user_id = $1 AND p.record_id = r.id
+         ) play_counts ON TRUE
          WHERE r.user_id = $1
            AND (
              $2::text IS NULL
@@ -387,10 +400,16 @@ app.get("/starred", async (req, res, next) => {
       pool.query(
         `SELECT r.id, r.title, r.release_year, r.rating,
                 a.id AS artist_id, a.name AS artist_name,
-                TRUE AS is_starred
+                TRUE AS is_starred,
+                play_counts.play_count AS play_count
          FROM stars s
          JOIN records r ON r.id = s.record_id AND r.user_id = s.user_id
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS play_count
+           FROM plays p
+           WHERE p.user_id = $1 AND p.record_id = r.id
+         ) play_counts ON TRUE
          WHERE s.user_id = $1 AND r.user_id = $1
          ORDER BY s.created_at DESC, s.id DESC`,
         [req.session.userId],
@@ -751,11 +770,42 @@ app.post("/records/:id/delete", requireCsrf, async (req, res, next) => {
   }
 });
 
+app.post("/records/:id/plays", requireCsrf, async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+
+  try {
+    const ownedRecord = await pool.query(
+      "SELECT id FROM records WHERE id = $1 AND user_id = $2",
+      [recordId, req.session.userId],
+    );
+    if (!ownedRecord.rowCount) return notFound(res);
+
+    const playedOn = typeof req.body.playedOn === "string" ? req.body.playedOn : "";
+    if (!validIsoDate(playedOn)) {
+      return res.status(400).type("text").send("Choose a valid date to log this spin.");
+    }
+    const note = typeof req.body.note === "string" ? req.body.note.trim() : "";
+    const result = await pool.query(
+      `INSERT INTO plays (user_id, record_id, played_on, note)
+       SELECT $1, r.id, $3::date, $4
+       FROM records r
+       WHERE r.id = $2 AND r.user_id = $1
+       RETURNING id`,
+      [req.session.userId, recordId, playedOn, note || null],
+    );
+    if (!result.rowCount) return notFound(res);
+    res.redirect(303, `/records/${recordId}`);
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/records/:id", async (req, res, next) => {
   const recordId = Number(req.params.id);
   if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
   try {
-    const [userResult, recordResult] = await Promise.all([
+    const [userResult, recordResult, playsResult] = await Promise.all([
       pool.query(
         "SELECT display_name FROM users WHERE id = $1",
         [req.session.userId],
@@ -774,6 +824,13 @@ app.get("/records/:id", async (req, res, next) => {
          WHERE r.id = $1 AND r.user_id = $2`,
         [recordId, req.session.userId],
       ),
+      pool.query(
+        `SELECT id, played_on, note
+         FROM plays
+         WHERE user_id = $1 AND record_id = $2
+         ORDER BY played_on DESC, id DESC`,
+        [req.session.userId, recordId],
+      ),
     ]);
     if (!userResult.rowCount) {
       return req.session.destroy(() => res.redirect(303, "/login"));
@@ -783,6 +840,7 @@ app.get("/records/:id", async (req, res, next) => {
       displayName: userResult.rows[0].display_name,
       csrfToken: csrfToken(req),
       record: recordResult.rows[0],
+      plays: playsResult.rows,
     }));
   } catch (error) {
     next(error);
