@@ -50,6 +50,17 @@ CREATE TABLE IF NOT EXISTS stars (
   CONSTRAINT stars_user_record_key UNIQUE (user_id, record_id)
 );
 
+CREATE TABLE IF NOT EXISTS plays (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  record_id INTEGER NOT NULL REFERENCES records(id) ON DELETE CASCADE,
+  played_on DATE NOT NULL DEFAULT CURRENT_DATE,
+  note TEXT
+);
+
+CREATE INDEX IF NOT EXISTS plays_user_record_date_idx
+  ON plays (user_id, record_id, played_on DESC, id DESC);
+
 CREATE TABLE IF NOT EXISTS "session" (
   "sid" VARCHAR NOT NULL COLLATE "default",
   "sess" JSON NOT NULL,

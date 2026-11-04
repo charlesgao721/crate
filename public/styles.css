@@ -828,6 +828,8 @@ a { color: inherit; }
 .record-card-artist, .record-card-meta { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .record-card-meta { margin-top: 3px; font-size: 10px; }
 .record-card-meta > span { padding: 0 4px; color: var(--orange); }
+.record-card-play-count { color: var(--muted); font-size: 9px; }
+.record-card-play-count > span { padding-right: 3px; color: var(--orange); }
 .star-toggle-form { margin: 0; }
 .record-card > .star-toggle-form { position: absolute; z-index: 2; top: 10px; right: 10px; }
 .star-toggle-button {
@@ -973,6 +975,36 @@ a { color: inherit; }
 .record-field-wide { grid-column: 1 / -1; }
 .record-notes { white-space: pre-wrap; }
 
+.spin-log-section { display: grid; grid-template-columns: minmax(260px, 0.85fr) minmax(0, 1.15fr); gap: 22px; margin-top: 45px; }
+.spin-log-form-card, .spin-log-history { min-width: 0; border: 1px solid var(--line); border-radius: 8px; padding: 23px; background: #fffdf980; }
+.spin-log-section-heading .eyebrow { margin-bottom: 8px; }
+.spin-log-section-heading h2, .spin-log-history-heading h2 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 26px; font-weight: 500; }
+.spin-log-form { display: grid; gap: 14px; margin-top: 20px; }
+.spin-log-field { display: grid; gap: 7px; color: #655f57; font-size: 11px; font-weight: 700; }
+.spin-log-field small { margin-left: 4px; color: var(--muted); font-size: 10px; font-weight: 400; }
+.spin-log-field input, .spin-log-field textarea {
+  width: 100%;
+  border: 1px solid #ded5c9;
+  border-radius: 5px;
+  padding: 10px 11px;
+  color: var(--ink);
+  background: #fffdf9;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+}
+.spin-log-field input { min-height: 42px; }
+.spin-log-field textarea { min-height: 69px; resize: vertical; }
+.spin-log-field input:focus, .spin-log-field textarea:focus { border-color: var(--orange); outline: 3px solid #d9622b20; }
+.spin-log-form > .button { justify-self: start; min-height: 42px; }
+.spin-log-history-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.spin-log-history-heading > span { color: var(--muted); font-size: 11px; }
+.spin-log-list { display: grid; gap: 0; margin: 15px 0 0; padding: 0; list-style: none; }
+.spin-log-entry { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); padding: 13px 0; }
+.spin-log-entry:last-child { border-bottom: 0; }
+.spin-log-entry time { flex: 0 0 auto; color: var(--ink); font-size: 12px; }
+.spin-log-entry p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; text-align: right; overflow-wrap: anywhere; }
+.spin-log-empty { margin: 22px 0 0; color: var(--muted); font-size: 13px; }
+
 .delete-confirm-main { display: grid; min-height: calc(100vh - 83px); place-items: center; padding: 35px 24px 70px; }
 .delete-confirm-card { width: min(100%, 540px); border: 1px solid var(--line); border-radius: 8px; padding: clamp(26px, 5vw, 46px); background: #fffdf980; text-align: center; }
 .delete-symbol { display: grid; width: 52px; height: 52px; place-items: center; margin: 0 auto 22px; border-radius: 50%; color: #963927; background: #96392714; font-size: 32px; }
@@ -984,6 +1016,7 @@ a { color: inherit; }
   .collection-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .collection-filter-search, .collection-filter-actions { grid-column: 1 / -1; }
   .collection-filter-actions { justify-content: flex-end; }
+  .spin-log-section { grid-template-columns: minmax(0, 1fr); }
   .record-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
   .record-detail-card { grid-template-columns: minmax(0, 1fr); gap: 28px; }
   .detail-cover { width: min(100%, 360px); margin: 0 auto; }
@@ -1005,6 +1038,9 @@ a { color: inherit; }
   .record-form { gap: 17px; }
   .record-fields { grid-template-columns: 1fr 1fr; }
   .record-field { padding-right: 10px; }
+  .spin-log-form-card, .spin-log-history { padding: 19px; }
+  .spin-log-entry { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .spin-log-entry p { text-align: left; }
   .delete-confirm-main { min-height: calc(100vh - 72px); }
 }
 
