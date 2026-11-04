@@ -1,0 +1,31 @@
+
+> crate@1.0.0 test
+> node --test
+
+✔ dashboard totals count records, dollars, and only provided ratings (6.951113ms)
+✖ a user's collection and record details exclude another user's records (1572.460117ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 1
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4893.518994
+
+✖ failing tests:
+
+test at test/data-isolation.test.js:125:1
+✖ a user's collection and record details exclude another user's records (1572.460117ms)
+  AssertionError [ERR_ASSERTION]: User B's collection must not include User A's record
+      at TestContext.<anonymous> (/home/runner/workspace/test/data-isolation.test.js:192:12)
+      at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+      at async Test.run (node:internal/test_runner/test:1409:7)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:387:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
