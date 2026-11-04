@@ -48,6 +48,7 @@ Records belong to a user and reference an artist owned by that same user. Deleti
 | `purchase_date` | DATE | Optional |
 | `rating` | INTEGER | Optional; if set, must be from 1 to 5 |
 | `notes` | TEXT | Optional |
+| `is_wishlist` | BOOLEAN | Required; defaults to false. True means the user doesn't own it yet, and My Collection, the dashboard and Random pick ignore it. Added in PR #26. |
 | `created_at` | TIMESTAMPTZ | Required; defaults to the current time |
 
 ### `stars`
@@ -128,6 +129,7 @@ erDiagram
         date purchase_date
         int rating
         text notes
+        boolean is_wishlist
         timestamptz created_at
     }
     stars {
