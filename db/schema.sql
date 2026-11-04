@@ -32,12 +32,16 @@ CREATE TABLE IF NOT EXISTS records (
   purchase_date DATE,
   rating INTEGER CHECK (rating IS NULL OR rating BETWEEN 1 AND 5),
   notes TEXT,
+  is_wishlist BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT records_artist_owner_fkey
     FOREIGN KEY (artist_id, user_id)
     REFERENCES artists (id, user_id)
     ON DELETE CASCADE
 );
+
+ALTER TABLE records
+  ADD COLUMN IF NOT EXISTS is_wishlist BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX IF NOT EXISTS records_user_id_idx ON records (user_id);
 CREATE INDEX IF NOT EXISTS records_artist_user_idx ON records (artist_id, user_id);

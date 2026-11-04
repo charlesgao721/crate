@@ -121,6 +121,7 @@ function authPage({
 
 function appHeader({ displayName, csrfToken, activePage = "" }) {
   const collectionActive = activePage === "collection" ? " nav-link-active" : "";
+  const wishlistActive = activePage === "wishlist" ? " nav-link-active" : "";
   const artistsActive = activePage === "artists" ? " nav-link-active" : "";
   const starredActive = activePage === "starred" ? " nav-link-active" : "";
   const dashboardActive = activePage === "dashboard" ? " nav-link-active" : "";
@@ -129,6 +130,7 @@ function appHeader({ displayName, csrfToken, activePage = "" }) {
     ${brand({ compact: true })}
     <nav class="main-nav" aria-label="Main navigation">
       <a class="nav-link${collectionActive}" href="/collection">My Collection</a>
+      <a class="nav-link wishlist-nav-link${wishlistActive}" href="/wishlist"><span class="wishlist-nav-full">Wishlist</span><span class="wishlist-nav-short">Wish</span></a>
       <a class="nav-link${artistsActive}" href="/artists">Artists</a>
       <a class="nav-link${starredActive}" href="/starred">Starred</a>
       <a class="nav-link${dashboardActive}" href="/dashboard">Dashboard</a>
@@ -156,8 +158,14 @@ function starToggleForm({ record, csrfToken, returnTo, className = "" }) {
   </form>`;
 }
 
-function recordCard(record, { csrfToken, returnTo }) {
+function recordCard(record, { csrfToken, returnTo, wishlistMode = false }) {
   const playCount = Number(record.play_count) || 0;
+  const actions = wishlistMode
+    ? `<form class="wishlist-got-form" method="post" action="/records/${escapeHtml(record.id)}/wishlist/got">
+        <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
+        <button class="button button-secondary wishlist-got-button" type="submit">Got it!</button>
+      </form>`
+    : starToggleForm({ record, csrfToken, returnTo });
   return `<article class="record-card">
     <a class="record-card-link" href="/records/${escapeHtml(record.id)}">
       <span class="record-card-cover" aria-hidden="true">
@@ -172,7 +180,7 @@ function recordCard(record, { csrfToken, returnTo }) {
         <span class="record-card-play-count"><span aria-hidden="true">↻</span> ${playCount} ${playCount === 1 ? "spin" : "spins"}</span>
       </span>
     </a>
-    ${starToggleForm({ record, csrfToken, returnTo })}
+    ${actions}
   </article>`;
 }
 
@@ -233,7 +241,8 @@ function collectionPage({
   formatOptions = [],
 }) {
   const isStarredPage = pageMode === "starred";
-  const heading = isStarredPage ? "Starred" : "My Collection";
+  const isWishlistPage = pageMode === "wishlist";
+  const heading = isStarredPage ? "Starred" : isWishlistPage ? "Wishlist" : "My Collection";
   const hasCriteria = Boolean(filters.q || filters.genre || filters.format);
   const collectionParams = new URLSearchParams();
   if (filters.q) collectionParams.set("q", filters.q);
@@ -241,44 +250,48 @@ function collectionPage({
   if (filters.format) collectionParams.set("format", filters.format);
   if (filters.sort && filters.sort !== "newest") collectionParams.set("sort", filters.sort);
   const collectionQuery = collectionParams.toString();
-  const returnTo = isStarredPage
+  const returnTo = isWishlistPage
+    ? "/wishlist"
+    : isStarredPage
     ? "/starred"
     : collectionQuery
       ? `/collection?${collectionQuery}`
       : "/collection";
-  const countSummary = isStarredPage
+  const countSummary = isWishlistPage
+    ? `${records.length} ${records.length === 1 ? "record" : "records"} on your wishlist`
+    : isStarredPage
     ? `${records.length} ${records.length === 1 ? "record" : "records"} starred`
     : hasCriteria
       ? `${records.length} ${records.length === 1 ? "match" : "matches"}`
       : `${records.length} ${records.length === 1 ? "record" : "records"} in your collection`;
-  const filtersMarkup = isStarredPage
+  const filtersMarkup = isStarredPage || isWishlistPage
     ? ""
     : collectionFilterForm({ filters, genreOptions, formatOptions });
   const content = records.length
-    ? `<div class="record-grid">${records.map((record) => recordCard(record, { csrfToken, returnTo })).join("")}</div>`
-    : !isStarredPage && hasCriteria
+    ? `<div class="record-grid">${records.map((record) => recordCard(record, { csrfToken, returnTo, wishlistMode: isWishlistPage })).join("")}</div>`
+    : !isStarredPage && !isWishlistPage && hasCriteria
       ? `<section class="empty-state search-empty" aria-live="polite">
           <h2>No records match your search.</h2>
         </section>`
       : `<section class="empty-state" aria-labelledby="empty-title">
         <div class="empty-record" aria-hidden="true"><span></span></div>
-        <p class="eyebrow">${isStarredPage ? "KEEP YOUR FAVORITES CLOSE" : "THE FIRST GROOVE"}</p>
-        <h2 id="empty-title">${isStarredPage ? "No starred records yet." : "Your shelves are waiting."}</h2>
-        <p>${isStarredPage ? "Star a record in your collection and it will show up here." : "Your collection is empty for now. Start with a record you love."}</p>
+        <p class="eyebrow">${isStarredPage ? "KEEP YOUR FAVORITES CLOSE" : isWishlistPage ? "SOMETHING TO LOOK FOR" : "THE FIRST GROOVE"}</p>
+        <h2 id="empty-title">${isStarredPage ? "No starred records yet." : isWishlistPage ? "Your wishlist is empty." : "Your shelves are waiting."}</h2>
+        <p>${isStarredPage ? "Star a record in your collection and it will show up here." : isWishlistPage ? "Add a record and mark it as a wishlist item to keep track of what you want." : "Your collection is empty for now. Start with a record you love."}</p>
       </section>`;
 
   return page({
     title: heading,
     pageClass: "collection-page",
-    body: `${appHeader({ displayName, csrfToken, activePage: isStarredPage ? "starred" : "collection" })}
+    body: `${appHeader({ displayName, csrfToken, activePage: isWishlistPage ? "wishlist" : isStarredPage ? "starred" : "collection" })}
     <main class="collection-main">
       <div class="collection-heading">
         <div class="collection-title-group">
-          <p class="eyebrow">${isStarredPage ? "YOUR GO-TO RECORDS" : "YOUR RECORDS, ALL IN ONE PLACE"}</p>
+          <p class="eyebrow">${isStarredPage ? "YOUR GO-TO RECORDS" : isWishlistPage ? "SOMETHING TO LOOK FOR" : "YOUR RECORDS, ALL IN ONE PLACE"}</p>
           <h1>${heading}<span class="heading-period">.</span></h1>
           <p class="collection-intro">${countSummary}</p>
         </div>
-        ${isStarredPage ? "" : `<a class="button button-primary add-record-button" href="/records/new">Add record <span aria-hidden="true">+</span></a>`}
+        ${isStarredPage || isWishlistPage ? "" : `<a class="button button-primary add-record-button" href="/records/new">Add record <span aria-hidden="true">+</span></a>`}
       </div>
       ${filtersMarkup}
       ${content}
@@ -289,6 +302,10 @@ function collectionPage({
 
 function starredPage({ displayName, csrfToken, records }) {
   return collectionPage({ displayName, csrfToken, records, pageMode: "starred" });
+}
+
+function wishlistPage({ displayName, csrfToken, records }) {
+  return collectionPage({ displayName, csrfToken, records, pageMode: "wishlist" });
 }
 
 function dashboardPage({ displayName, csrfToken, stats }) {
@@ -424,6 +441,7 @@ function recordFormPage({ mode, displayName, csrfToken, record = {}, errors = {}
   const rating = value("rating", "rating");
   const condition = record.condition ?? "";
   const artistName = value("artistName", "artist_name");
+  const isWishlist = Boolean(value("isWishlist", "is_wishlist"));
   const currentYear = new Date().getFullYear();
   const formatOptions = ["LP", "EP", "7-inch", "Box set"];
   const conditionOptions = ["Mint", "VG+", "VG", "G"];
@@ -498,6 +516,10 @@ function recordFormPage({ mode, displayName, csrfToken, record = {}, errors = {}
           <label class="field">
             <span>Notes</span>
             <textarea name="notes" rows="4" placeholder="Anything you want to remember about this record">${escapeHtml(record.notes ?? "")}</textarea>
+          </label>
+          <label class="wishlist-checkbox">
+            <input type="checkbox" name="isWishlist" value="true"${isWishlist ? " checked" : ""}>
+            <span>I don't own this yet (wishlist)</span>
           </label>
           <div class="form-actions">
             <a class="button button-secondary" href="${isEdit ? `/records/${escapeHtml(record.id)}` : "/collection"}">Cancel</a>
@@ -736,6 +758,7 @@ module.exports = {
   authPage,
   collectionPage,
   starredPage,
+  wishlistPage,
   dashboardPage,
   spinPage,
   artistsPage,
