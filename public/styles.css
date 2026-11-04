@@ -251,6 +251,7 @@ a { color: inherit; }
 
 .field { display: grid; gap: 8px; }
 .field > span { font-size: 12px; font-weight: 600; }
+.field-error { color: #9b3d2d; font-size: 11px; line-height: 1.45; }
 
 .field input {
   width: 100%;
