@@ -421,6 +421,97 @@ a { color: inherit; }
 .genre-chart-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
 .genre-chart-empty { margin: 30px 0 0; color: var(--muted); font-size: 13px; }
 
+.spin-main {
+  width: min(100% - 48px, 1080px);
+  min-height: calc(100vh - 83px);
+  margin: 0 auto;
+  padding: clamp(54px, 8vh, 88px) 0 25px;
+}
+.spin-heading { text-align: center; }
+.spin-heading h1 {
+  max-width: 850px;
+  margin: 13px auto 10px;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(38px, 5.5vw, 62px);
+  font-weight: 500;
+  letter-spacing: -2.3px;
+  line-height: 1.12;
+}
+.spin-heading > p:last-child { margin: 0; color: var(--muted); font-size: 14px; }
+.spin-genre-form {
+  display: flex;
+  align-items: end;
+  justify-content: center;
+  gap: 11px;
+  margin: 29px auto 26px;
+}
+.spin-genre-field { display: grid; min-width: min(100%, 270px); gap: 7px; text-align: left; }
+.spin-genre-field > span { color: #655f57; font-size: 10px; font-weight: 700; }
+.spin-genre-field select {
+  width: 100%;
+  min-height: 43px;
+  border: 1px solid #ded5c9;
+  border-radius: 5px;
+  padding: 0 11px;
+  color: var(--ink);
+  background: #fffdf9;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+}
+.spin-genre-field select:focus { border-color: var(--orange); outline: 3px solid #d9622b20; }
+.spin-genre-form .button { min-height: 43px; }
+.spin-result-card {
+  display: grid;
+  width: min(100%, 850px);
+  grid-template-columns: minmax(180px, 0.7fr) minmax(0, 1.3fr);
+  align-items: center;
+  gap: clamp(25px, 5vw, 54px);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: clamp(22px, 4vw, 38px);
+  background: #fffdf980;
+}
+.spin-record-art {
+  position: relative;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, #292725 0 4px, #33312e 5px 6px);
+  box-shadow: 0 14px 30px #1e1e1e20;
+}
+.spin-record-art > span { width: 23%; aspect-ratio: 1; border: 6px solid #b95127; border-radius: 50%; background: var(--orange); }
+.spin-result-copy .eyebrow { margin-bottom: 9px; }
+.spin-result-title { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: clamp(30px, 4vw, 43px); font-weight: 500; letter-spacing: -1px; line-height: 1.13; }
+.spin-result-title a { color: var(--ink); text-decoration: none; }
+.spin-result-title a:hover { color: var(--orange-dark); }
+.spin-result-artist { margin: 8px 0 24px; color: var(--muted); font-size: 14px; }
+.spin-result-details { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 13px; margin: 0; }
+.spin-result-details dt { color: var(--muted); font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; }
+.spin-result-details dd { overflow-wrap: anywhere; margin: 5px 0 0; color: var(--ink); font-size: 12px; }
+.spin-result-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-top: 25px; }
+.spin-result-actions form { margin: 0; }
+.spin-result-actions .button { min-height: 41px; }
+.spin-empty {
+  display: flex;
+  width: min(100%, 560px);
+  min-height: 290px;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto;
+  border: 1px dashed #d8ccbe;
+  border-radius: 8px;
+  padding: 28px;
+  text-align: center;
+}
+.spin-empty-mark { color: var(--orange); font-size: 36px; }
+.spin-empty h2 { margin: 13px 0 8px; font-family: "Playfair Display", Georgia, serif; font-size: 26px; font-weight: 500; }
+.spin-empty p { max-width: 380px; margin: 0; color: var(--muted); font-size: 13px; line-height: 1.7; }
+.spin-nav-short { display: none; }
+
 .collection-heading { text-align: center; }
 .collection-heading h1 {
   margin: 14px 0 9px;
@@ -579,8 +670,8 @@ a { color: inherit; }
   .mobile-brand { margin-bottom: 43px; }
   .auth-card h2 { font-size: 39px; }
   .site-header { height: 72px; padding: 0 19px; }
-  .main-nav { gap: 13px; }
-  .nav-link { font-size: 11px; }
+  .main-nav { gap: 8px; }
+  .nav-link { font-size: 10px; }
   .header-right { gap: 11px; }
   .header-greeting { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
   .button-quiet { min-height: 35px; padding: 0 10px; font-size: 11px; }
@@ -935,4 +1026,25 @@ a { color: inherit; }
 @media (max-width: 420px) {
   .main-nav { gap: 6px; }
   .nav-link { font-size: 9px; }
+}
+
+@media (max-width: 900px) {
+  .spin-nav-full { display: none; }
+  .spin-nav-short { display: inline; }
+}
+
+@media (max-width: 760px) {
+  .spin-main { width: min(100% - 36px, 1080px); padding-top: 54px; }
+  .spin-result-card { grid-template-columns: minmax(140px, 0.7fr) minmax(0, 1.3fr); gap: 22px; }
+}
+
+@media (max-width: 520px) {
+  .spin-main { padding-top: 43px; }
+  .spin-heading h1 { font-size: 40px; letter-spacing: -1.5px; }
+  .spin-genre-form { align-items: stretch; flex-direction: column; }
+  .spin-genre-form .button { align-self: flex-start; }
+  .spin-result-card { grid-template-columns: minmax(0, 1fr); }
+  .spin-record-art { width: min(100%, 220px); margin: 0 auto; }
+  .spin-result-copy { text-align: center; }
+  .spin-result-actions { justify-content: center; }
 }

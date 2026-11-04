@@ -12,6 +12,7 @@ const {
   collectionPage,
   starredPage,
   dashboardPage,
+  spinPage,
   artistsPage,
   artistDetailPage,
   recordFormPage,
@@ -427,6 +428,52 @@ app.get("/dashboard", async (req, res, next) => {
       displayName: userResult.rows[0].display_name,
       csrfToken: csrfToken(req),
       stats: computeStats(recordsResult.rows),
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/spin", async (req, res, next) => {
+  const selectedGenre = typeof req.query.genre === "string"
+    ? req.query.genre.trim()
+    : "";
+
+  try {
+    const [userResult, genresResult, recordResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT genre
+         FROM records
+         WHERE user_id = $1 AND genre IS NOT NULL AND BTRIM(genre) <> ''
+         GROUP BY genre
+         ORDER BY LOWER(genre), genre`,
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT r.id, r.title, r.release_year, r.genre, r.rating,
+                a.name AS artist_name
+         FROM records r
+         JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         WHERE r.user_id = $1
+           AND ($2::text IS NULL OR r.genre = $2)
+         ORDER BY RANDOM()
+         LIMIT 1`,
+        [req.session.userId, selectedGenre || null],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    res.type("html").send(spinPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      genres: genresResult.rows.map((row) => row.genre),
+      selectedGenre,
+      record: recordResult.rows[0] || null,
     }));
   } catch (error) {
     next(error);
