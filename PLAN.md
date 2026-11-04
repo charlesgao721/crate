@@ -131,13 +131,15 @@ A warm record-store feel. Cream background (#F5EFE6), near-black text (#1E1E1E),
 
 | Planned feature | Shipped / Changed / Cut | Status (Done/Backlogged) | Learning | What changed and why (one line) |
 |---|---|---|---|---|
-| 1. Sign up and login | | | | |
-| 2. Data model | | | | |
-| 3. Create, read, update, delete | | | | |
-| 4. Validation | | | | |
-| 5. Stars | | | | |
-| 6. Find things | | | | |
-| 7. Dashboard | | | | |
-| 8. Random pick | | | | |
-| 9. Spin log | | | | |
-| 10. Wishlist | | | | |
+| 1. Sign up and login | Changed | Done | The plan named a tech stack I never checked | Works as planned (email, bcrypt, session cookie), but Agent built server-rendered pages instead of the React front end I guessed in section 5. |
+| 2. Data model | Shipped | Done | The database can enforce rules, not just store data | Matches section 3, and Agent added a constraint so a record can only point to an artist owned by the same user. |
+| 3. Create, read, update, delete | Shipped | Done | A smoke test catches what reading code misses | Shipped as planned; the first run failed on missing imports and a date-format bug, both fixed before merge. |
+| 4. Validation | Changed | Done | Browser defaults can fight your own UX | The browser's built-in "required" popups blocked my friendly messages, so one shared validator now runs in the browser and on the server. |
+| 5. Stars | Shipped | Done | A junction table is just one row per relationship | One shared stars table with a unique (user_id, record_id) pair, exactly as planned. |
+| 6. Find things | Shipped | Done | Security has to be asked for explicitly | Search, filters and sort as planned, with bound SQL parameters and filters kept in the URL. |
+| 7. Dashboard | Changed | Done | "Use library X" in a plan is a guess, not a requirement | The chart is plain HTML/CSS bars instead of Recharts or Chart.js; stats live in a testable computeStats function. |
+| 8. Random pick | Shipped | Done | Small features are the easiest to demo | Shipped as planned, including the optional genre filter. |
+| 9. Spin log | Changed | Done | Schema details I wrote didn't fit the existing tables | The plays table shipped, but the planned link needed a constraint records didn't have, so ownership is checked in the route instead. |
+| 10. Wishlist | Shipped (late) | Done | Plan the cut list before you need it | It was first on my cut list and nearly cut at the deadline; it shipped last in a short final loop, adding a column with a migration-safe ALTER TABLE. |
+
+**Also not in the plan:** the live app has its own production database. I asked Agent to create tables on startup; it pushed back, saying Replit's publish step copies the development schema to production, and I went with its call (PR #24).
