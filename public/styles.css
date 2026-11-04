@@ -313,6 +313,27 @@ a { color: inherit; }
 }
 
 .brand-compact { color: var(--ink); font-size: 25px; }
+.main-nav { display: flex; height: 100%; align-items: center; gap: 28px; }
+.nav-link {
+  position: relative;
+  display: inline-flex;
+  height: 100%;
+  align-items: center;
+  color: #77716a;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.nav-link:hover, .nav-link-active { color: var(--ink); }
+.nav-link-active::after {
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--orange);
+  content: "";
+}
 .header-right { display: flex; align-items: center; gap: 24px; }
 .header-right form { margin: 0; }
 .header-greeting { color: #655f57; font-size: 13px; }
@@ -379,6 +400,105 @@ a { color: inherit; }
 .collection-footer { margin-top: 67px; color: #92887d; font-size: 9px; letter-spacing: 1.7px; text-align: center; }
 .collection-footer span { padding: 0 7px; color: var(--orange); }
 
+.artists-main, .artist-detail-main {
+  width: min(100% - 48px, 960px);
+  min-height: calc(100vh - 83px);
+  margin: 0 auto;
+  padding: clamp(58px, 8vh, 84px) 0 25px;
+}
+
+.artists-heading { margin-bottom: 37px; text-align: center; }
+.artists-heading h1, .artist-detail-heading h1 {
+  margin: 13px 0 9px;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(43px, 5.5vw, 64px);
+  font-weight: 500;
+  letter-spacing: -2.5px;
+  line-height: 1.1;
+}
+
+.artists-heading > p:last-child { margin: 0; color: var(--muted); font-size: 14px; }
+.artists-empty { margin-top: 0; }
+
+.artist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.artist-card {
+  display: flex;
+  min-height: 93px;
+  align-items: center;
+  gap: 15px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 15px 18px;
+  color: var(--ink);
+  background: #fffdf98c;
+  text-decoration: none;
+  transition: border-color 150ms ease, transform 150ms ease, background 150ms ease;
+}
+
+.artist-card:hover {
+  border-color: #d9a28a;
+  background: var(--paper);
+  transform: translateY(-2px);
+}
+
+.artist-avatar {
+  display: grid;
+  width: 45px;
+  height: 45px;
+  flex: 0 0 45px;
+  place-items: center;
+  border-radius: 50%;
+  color: var(--orange-dark);
+  background: #d9622b18;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 22px;
+}
+
+.artist-card-copy { display: grid; min-width: 0; gap: 4px; }
+.artist-name { overflow: hidden; font-family: "Playfair Display", Georgia, serif; font-size: 18px; text-overflow: ellipsis; white-space: nowrap; }
+.artist-country { color: var(--muted); font-size: 11px; }
+.artist-arrow { margin-left: auto; color: var(--orange); font-size: 18px; }
+
+.artist-detail-main { width: min(100% - 48px, 850px); }
+.back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+  text-decoration: none;
+}
+.back-link:hover { color: var(--orange-dark); }
+.artist-detail-heading { margin: 36px 0 42px; text-align: center; }
+.artist-detail-heading h1 { margin-bottom: 6px; }
+.detail-country { color: var(--muted); font-size: 13px; }
+.artist-records { width: min(100%, 650px); margin: 0 auto; }
+.section-heading { display: flex; align-items: baseline; justify-content: space-between; border-bottom: 1px solid var(--line); padding-bottom: 13px; }
+.section-heading h2 { margin: 0; font-family: "Playfair Display", Georgia, serif; font-size: 24px; font-weight: 500; }
+.record-count { color: var(--muted); font-size: 11px; }
+.record-list { display: grid; }
+.record-row { display: flex; min-height: 78px; align-items: center; gap: 15px; border-bottom: 1px solid var(--line); }
+.record-row-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border: 1px solid #ded3c5;
+  border-radius: 4px;
+  background: repeating-radial-gradient(circle, #e8dfd3 0 2px, #f4ece1 3px 5px);
+}
+.record-row-mark span { width: 11px; height: 11px; border-radius: 50%; background: var(--orange); }
+.record-row-copy { display: grid; min-width: 0; gap: 5px; }
+.record-title { overflow: hidden; font-family: "Playfair Display", Georgia, serif; font-size: 17px; text-overflow: ellipsis; white-space: nowrap; }
+.record-meta { color: var(--muted); font-size: 10px; }
+.detail-empty { min-height: 275px; margin-top: 25px; }
+
 @media (max-width: 800px) {
   .auth-shell { grid-template-columns: minmax(0, 1fr); }
   .auth-art { display: none; }
@@ -393,10 +513,25 @@ a { color: inherit; }
   .mobile-brand { margin-bottom: 43px; }
   .auth-card h2 { font-size: 39px; }
   .site-header { height: 72px; padding: 0 19px; }
+  .main-nav { gap: 13px; }
+  .nav-link { font-size: 11px; }
   .header-right { gap: 11px; }
   .header-greeting { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
   .button-quiet { min-height: 35px; padding: 0 10px; font-size: 11px; }
   .collection-main { width: min(100% - 36px, 1080px); min-height: calc(100vh - 72px); padding-top: 68px; }
   .collection-heading h1 { font-size: 47px; }
   .empty-state { min-height: 275px; margin-top: 40px; padding: 22px; }
+  .artists-main, .artist-detail-main { width: min(100% - 36px, 960px); min-height: calc(100vh - 72px); padding-top: 63px; }
+  .artist-grid { grid-template-columns: 1fr; gap: 10px; }
+}
+
+@media (max-width: 420px) {
+  .site-header { padding: 0 13px; }
+  .brand-compact { gap: 7px; font-size: 22px; }
+  .brand-mark { width: 25px; height: 25px; }
+  .main-nav { gap: 9px; }
+  .nav-link { font-size: 10px; }
+  .header-right { gap: 7px; }
+  .header-greeting { max-width: 58px; font-size: 10px; }
+  .button-quiet { gap: 4px; padding: 0 7px; font-size: 10px; }
 }

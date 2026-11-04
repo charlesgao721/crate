@@ -105,20 +105,30 @@ function authPage({ mode, csrfToken, error = "", email = "", displayName = "" })
   });
 }
 
+function appHeader({ displayName, csrfToken, activePage = "" }) {
+  const collectionActive = activePage === "collection" ? " nav-link-active" : "";
+  const artistsActive = activePage === "artists" ? " nav-link-active" : "";
+  return `<header class="site-header">
+    ${brand({ compact: true })}
+    <nav class="main-nav" aria-label="Main navigation">
+      <a class="nav-link${collectionActive}" href="/collection">My Collection</a>
+      <a class="nav-link${artistsActive}" href="/artists">Artists</a>
+    </nav>
+    <div class="header-right">
+      <span class="header-greeting">Hi, ${escapeHtml(displayName)}</span>
+      <form method="post" action="/logout">
+        <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
+        <button class="button button-quiet" type="submit">Log out <span aria-hidden="true">↗</span></button>
+      </form>
+    </div>
+  </header>`;
+}
+
 function collectionPage({ displayName, csrfToken }) {
   return page({
     title: "My Collection",
     pageClass: "collection-page",
-    body: `<header class="site-header">
-      ${brand({ compact: true })}
-      <div class="header-right">
-        <span class="header-greeting">Hi, ${escapeHtml(displayName)}</span>
-        <form method="post" action="/logout">
-          <input type="hidden" name="_csrf" value="${escapeHtml(csrfToken)}">
-          <button class="button button-quiet" type="submit">Log out <span aria-hidden="true">↗</span></button>
-        </form>
-      </div>
-    </header>
+    body: `${appHeader({ displayName, csrfToken, activePage: "collection" })}
     <main class="collection-main">
       <div class="collection-heading">
         <p class="eyebrow">YOUR RECORDS, ALL IN ONE PLACE</p>
@@ -136,4 +146,91 @@ function collectionPage({ displayName, csrfToken }) {
   });
 }
 
-module.exports = { authPage, collectionPage };
+function artistsPage({ displayName, csrfToken, artists }) {
+  const content = artists.length
+    ? `<div class="artist-grid">
+        ${artists.map((artist) => `<a class="artist-card" href="/artists/${escapeHtml(artist.id)}">
+          <span class="artist-avatar" aria-hidden="true">${escapeHtml(artist.name.trim().charAt(0).toUpperCase())}</span>
+          <span class="artist-card-copy">
+            <span class="artist-name">${escapeHtml(artist.name)}</span>
+            <span class="artist-country">${artist.country ? escapeHtml(artist.country) : "Artist"}</span>
+          </span>
+          <span class="artist-arrow" aria-hidden="true">↗</span>
+        </a>`).join("")}
+      </div>`
+    : `<section class="empty-state artists-empty" aria-labelledby="artists-empty-title">
+        <div class="empty-record" aria-hidden="true"><span></span></div>
+        <p class="eyebrow">YOUR ARTISTS</p>
+        <h2 id="artists-empty-title">No artists yet.</h2>
+        <p>Artists will show up here as your collection grows.</p>
+      </section>`;
+
+  return page({
+    title: "Artists",
+    pageClass: "artists-page",
+    body: `${appHeader({ displayName, csrfToken, activePage: "artists" })}
+      <main class="artists-main">
+        <div class="artists-heading">
+          <p class="eyebrow">THE PEOPLE BEHIND THE MUSIC</p>
+          <h1>Your Artists<span class="heading-period">.</span></h1>
+          <p>Browse the artists in your record collection.</p>
+        </div>
+        ${content}
+        <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
+      </main>`,
+  });
+}
+
+function artistDetailPage({ displayName, csrfToken, artist, records }) {
+  const countryLine = artist.country
+    ? `<span class="detail-country">${escapeHtml(artist.country)}</span>`
+    : "";
+  const recordContent = records.length
+    ? `<div class="record-list">
+        ${records.map((record) => {
+          const metadata = [
+            record.release_year,
+            record.format,
+            record.genre,
+            record.condition,
+          ].filter(Boolean).map(escapeHtml).join(" <span aria-hidden=\"true\">·</span> ");
+          return `<article class="record-row">
+            <span class="record-row-mark" aria-hidden="true"><span></span></span>
+            <span class="record-row-copy">
+              <span class="record-title">${escapeHtml(record.title)}</span>
+              <span class="record-meta">${metadata || "Record"}</span>
+            </span>
+          </article>`;
+        }).join("")}
+      </div>`
+    : `<section class="empty-state detail-empty" aria-labelledby="records-empty-title">
+        <div class="empty-record" aria-hidden="true"><span></span></div>
+        <p class="eyebrow">IN THE GROOVE</p>
+        <h2 id="records-empty-title">No records by this artist yet.</h2>
+        <p>Albums and releases you collect by ${escapeHtml(artist.name)} will appear here.</p>
+      </section>`;
+
+  return page({
+    title: artist.name,
+    pageClass: "artist-detail-page",
+    body: `${appHeader({ displayName, csrfToken, activePage: "artists" })}
+      <main class="artist-detail-main">
+        <a class="back-link" href="/artists"><span aria-hidden="true">←</span> All artists</a>
+        <div class="artist-detail-heading">
+          <p class="eyebrow">ARTIST</p>
+          <h1>${escapeHtml(artist.name)}<span class="heading-period">.</span></h1>
+          ${countryLine}
+        </div>
+        <section class="artist-records" aria-labelledby="records-heading">
+          <div class="section-heading">
+            <h2 id="records-heading">Records</h2>
+            <span class="record-count">${records.length} ${records.length === 1 ? "record" : "records"}</span>
+          </div>
+          ${recordContent}
+        </section>
+        <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
+      </main>`,
+  });
+}
+
+module.exports = { authPage, collectionPage, artistsPage, artistDetailPage };
