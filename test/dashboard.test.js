@@ -13,3 +13,16 @@ test("dashboard totals count records, dollars, and only provided ratings", () =>
   assert.equal(stats.totalSpent, 75);
   assert.equal(stats.averageRating, 4.0);
 });
+
+test("dashboard genre counts merge case-insensitive matches", () => {
+  const stats = computeStats([
+    { genre: " Jazz " },
+    { genre: "jazz" },
+    { genre: "Soul" },
+  ]);
+
+  assert.deepEqual(stats.genreCounts, [
+    { genre: "Jazz", count: 2 },
+    { genre: "Soul", count: 1 },
+  ]);
+});
