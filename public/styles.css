@@ -535,3 +535,247 @@ a { color: inherit; }
   .header-greeting { max-width: 58px; font-size: 10px; }
   .button-quiet { gap: 4px; padding: 0 7px; font-size: 10px; }
 }
+
+.collection-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 20px;
+  text-align: left;
+}
+
+.collection-title-group { text-align: left; }
+.add-record-button { flex: 0 0 auto; margin-bottom: 5px; }
+
+.record-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+  margin-top: 42px;
+}
+
+.record-card {
+  display: grid;
+  min-width: 0;
+  gap: 12px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.record-card-cover {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  aspect-ratio: 1;
+  place-items: center;
+  border: 1px solid #211d1930;
+  border-radius: 6px;
+  background: #cc9955;
+  box-shadow: 0 8px 20px #1e1e1e12;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.record-card:nth-child(4n + 2) .record-card-cover { background: #496258; color: var(--cream); }
+.record-card:nth-child(4n + 3) .record-card-cover { background: #9a4231; color: var(--cream); }
+.record-card:nth-child(4n + 4) .record-card-cover { background: #d7c9aa; }
+.record-card:hover .record-card-cover { transform: translateY(-3px); box-shadow: 0 13px 24px #1e1e1e20; }
+.cover-sun {
+  position: absolute;
+  top: 12%;
+  right: 11%;
+  width: 43%;
+  aspect-ratio: 1;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  opacity: 0.7;
+  background: repeating-radial-gradient(circle, transparent 0 6px, currentColor 7px 8px);
+}
+
+.cover-initial {
+  position: absolute;
+  bottom: 10%;
+  left: 10%;
+  color: inherit;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(50px, 6vw, 82px);
+  line-height: 1;
+}
+
+.cover-lines {
+  position: absolute;
+  right: 11%;
+  bottom: 12%;
+  width: 28%;
+  height: 1px;
+  background: currentColor;
+  box-shadow: 0 5px currentColor, 0 10px currentColor;
+  opacity: 0.65;
+}
+
+.record-card-copy { display: grid; min-width: 0; gap: 4px; }
+.record-card-title {
+  overflow: hidden;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 16px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.record-card-artist, .record-card-meta { overflow: hidden; color: var(--muted); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.record-card-meta { margin-top: 3px; font-size: 10px; }
+.record-card-meta > span { padding: 0 4px; color: var(--orange); }
+
+.record-form-main, .record-detail-main {
+  width: min(100% - 48px, 800px);
+  margin: 0 auto;
+  padding: 52px 0 70px;
+}
+
+.record-form-heading { margin: 26px auto 30px; text-align: center; }
+.record-form-heading h1, .record-detail-copy h1, .delete-confirm-card h1 {
+  margin: 12px 0 8px;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(38px, 5vw, 53px);
+  font-weight: 500;
+  letter-spacing: -2px;
+  line-height: 1.1;
+}
+.record-form-heading > p:last-child, .delete-confirm-card > p:last-of-type { margin: 0; color: var(--muted); font-size: 13px; }
+
+.record-form {
+  display: grid;
+  gap: 19px;
+  width: min(100%, 650px);
+  margin: 0 auto;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: clamp(22px, 4vw, 34px);
+  background: #fffdf980;
+}
+
+.record-form .field input, .record-form .field select, .record-form .field textarea {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid #ded5c9;
+  border-radius: 5px;
+  outline: none;
+  padding: 11px 13px;
+  color: var(--ink);
+  background: #fffdf9;
+  font-family: "DM Sans", sans-serif;
+  font-size: 13px;
+}
+
+.record-form .field input:focus, .record-form .field select:focus, .record-form .field textarea:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px #d9622b20;
+}
+
+.record-form .field textarea { min-height: 105px; resize: vertical; }
+.record-form .field > span b { color: var(--orange); }
+.form-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.field-rating { width: calc(50% - 9px); }
+.form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 11px; margin-top: 5px; }
+.form-actions form { margin: 0; }
+.button-secondary {
+  border: 1px solid #d8ccbe;
+  color: var(--ink);
+  background: transparent;
+}
+.button-secondary:hover { border-color: var(--orange); color: var(--orange-dark); }
+.button-danger { color: white; background: #9c3e2d; text-decoration: none; }
+.button-danger:hover { background: #7f3024; }
+
+.record-detail-main { width: min(100% - 48px, 900px); }
+.record-detail-card {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.8fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: clamp(25px, 5vw, 60px);
+  margin: 32px 0 36px;
+}
+
+.detail-cover {
+  position: relative;
+  display: grid;
+  overflow: hidden;
+  aspect-ratio: 1;
+  place-items: center;
+  border-radius: 5px;
+  color: var(--ink);
+  background: #cc9955;
+  box-shadow: 0 15px 32px #1e1e1e20;
+}
+
+.detail-cover-sun {
+  position: absolute;
+  top: 12%;
+  right: 11%;
+  width: 45%;
+  aspect-ratio: 1;
+  border: 1px solid #1e1e1e80;
+  border-radius: 50%;
+  background: repeating-radial-gradient(circle, transparent 0 7px, #1e1e1e80 8px 9px);
+}
+
+.detail-cover-initial {
+  position: absolute;
+  bottom: 9%;
+  left: 9%;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(70px, 12vw, 130px);
+  line-height: 1;
+}
+
+.detail-cover-caption { position: absolute; right: 9%; bottom: 10%; font-size: 8px; font-weight: 700; letter-spacing: 1.4px; }
+.record-detail-copy .eyebrow { margin-bottom: 12px; }
+.record-detail-copy h1 { overflow-wrap: anywhere; font-size: clamp(36px, 5vw, 58px); }
+.detail-artist { margin: 10px 0 24px; font-size: 16px; }
+.detail-artist a, .record-field a { color: var(--orange-dark); text-decoration: none; }
+.detail-artist a:hover, .record-field a:hover { text-decoration: underline; }
+.detail-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.detail-actions .button { min-height: 42px; }
+
+.record-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  border-top: 1px solid var(--line);
+}
+
+.record-field { min-width: 0; border-bottom: 1px solid var(--line); padding: 16px 18px 16px 0; }
+.record-field > span { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; }
+.record-field p { overflow-wrap: anywhere; margin: 6px 0 0; font-size: 14px; line-height: 1.6; }
+.record-field-wide { grid-column: 1 / -1; }
+.record-notes { white-space: pre-wrap; }
+
+.delete-confirm-main { display: grid; min-height: calc(100vh - 83px); place-items: center; padding: 35px 24px 70px; }
+.delete-confirm-card { width: min(100%, 540px); border: 1px solid var(--line); border-radius: 8px; padding: clamp(26px, 5vw, 46px); background: #fffdf980; text-align: center; }
+.delete-symbol { display: grid; width: 52px; height: 52px; place-items: center; margin: 0 auto 22px; border-radius: 50%; color: #963927; background: #96392714; font-size: 32px; }
+.delete-confirm-card .eyebrow { margin-bottom: 12px; }
+.delete-confirm-card h1 { font-size: clamp(30px, 4vw, 40px); }
+.delete-confirm-card .form-actions { justify-content: center; margin-top: 28px; }
+
+@media (max-width: 760px) {
+  .record-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+  .record-detail-card { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .detail-cover { width: min(100%, 360px); margin: 0 auto; }
+  .record-detail-copy { text-align: center; }
+  .detail-actions { justify-content: center; }
+  .record-form-main { padding-top: 38px; }
+}
+
+@media (max-width: 520px) {
+  .collection-heading { align-items: flex-start; flex-direction: column; gap: 19px; }
+  .collection-title-group { width: 100%; }
+  .add-record-button { min-height: 42px; margin-bottom: 0; }
+  .record-grid { margin-top: 28px; gap: 14px 11px; }
+  .record-card-title { font-size: 14px; }
+  .record-card-artist { font-size: 10px; }
+  .record-form-main, .record-detail-main { width: min(100% - 36px, 800px); padding-top: 36px; }
+  .form-row { grid-template-columns: minmax(0, 1fr); gap: 19px; }
+  .field-rating { width: 100%; }
+  .record-form { gap: 17px; }
+  .record-fields { grid-template-columns: 1fr 1fr; }
+  .record-field { padding-right: 10px; }
+  .delete-confirm-main { min-height: calc(100vh - 72px); }
+}

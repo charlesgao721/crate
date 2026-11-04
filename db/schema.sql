@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS artists (
 );
 
 CREATE INDEX IF NOT EXISTS artists_user_id_idx ON artists (user_id);
+CREATE UNIQUE INDEX IF NOT EXISTS artists_user_name_lower_idx
+  ON artists (user_id, LOWER(name));
 
 CREATE TABLE IF NOT EXISTS records (
   id SERIAL PRIMARY KEY,

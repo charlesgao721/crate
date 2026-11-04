@@ -10,6 +10,9 @@ const {
   collectionPage,
   artistsPage,
   artistDetailPage,
+  recordFormPage,
+  recordDetailPage,
+  recordDeletePage,
 } = require("./views");
 
 const requiredEnvironment = ["DATABASE_URL", "SESSION_SECRET"];
@@ -93,6 +96,41 @@ function renderAuth(res, { mode, csrf, error, email, displayName, status = 200 }
   return res.status(status).type("html").send(
     authPage({ mode, csrfToken: csrf, error, email, displayName }),
   );
+}
+
+function formText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function recordValues(body = {}) {
+  return {
+    title: formText(body.title),
+    artistName: formText(body.artistName),
+    releaseYear: body.releaseYear ? Number(body.releaseYear) : null,
+    format: formText(body.format),
+    genre: formText(body.genre) || null,
+    condition: formText(body.condition) || null,
+    pricePaid: body.pricePaid ? body.pricePaid : null,
+    purchaseDate: body.purchaseDate || null,
+    rating: body.rating ? Number(body.rating) : null,
+    notes: typeof body.notes === "string" ? body.notes.trim() || null : null,
+  };
+}
+
+async function findOrCreateArtist(client, userId, artistName) {
+  const result = await client.query(
+    `INSERT INTO artists (user_id, name)
+     VALUES ($1, $2)
+     ON CONFLICT (user_id, (LOWER(name)))
+     DO UPDATE SET name = artists.name
+     RETURNING id`,
+    [userId, artistName],
+  );
+  return result.rows[0].id;
+}
+
+function notFound(res) {
+  return res.status(404).type("text").send("not found");
 }
 
 function regenerateSession(req, user) {
@@ -226,16 +264,249 @@ app.use(requireAuth);
 
 app.get("/collection", async (req, res, next) => {
   try {
-    const result = await pool.query(
-      "SELECT display_name FROM users WHERE id = $1",
-      [req.session.userId],
-    );
-    if (!result.rowCount) {
+    const [userResult, recordsResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT r.id, r.title, r.release_year, r.rating,
+                a.id AS artist_id, a.name AS artist_name
+         FROM records r
+         JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         WHERE r.user_id = $1
+         ORDER BY r.created_at DESC, r.id DESC`,
+        [req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
       return req.session.destroy(() => res.redirect(303, "/login"));
     }
     res.type("html").send(collectionPage({
-      displayName: result.rows[0].display_name,
+      displayName: userResult.rows[0].display_name,
       csrfToken: csrfToken(req),
+      records: recordsResult.rows,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/records/new", async (req, res, next) => {
+  try {
+    const userResult = await pool.query(
+      "SELECT display_name FROM users WHERE id = $1",
+      [req.session.userId],
+    );
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    res.type("html").send(recordFormPage({
+      mode: "create",
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/records", requireCsrf, async (req, res, next) => {
+  const values = recordValues(req.body);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const artistId = await findOrCreateArtist(
+      client,
+      req.session.userId,
+      values.artistName,
+    );
+    const result = await client.query(
+      `INSERT INTO records
+        (user_id, artist_id, title, release_year, format, genre, condition,
+         price_paid, purchase_date, rating, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       RETURNING id`,
+      [
+        req.session.userId,
+        artistId,
+        values.title,
+        values.releaseYear,
+        values.format,
+        values.genre,
+        values.condition,
+        values.pricePaid,
+        values.purchaseDate,
+        values.rating,
+        values.notes,
+      ],
+    );
+    await client.query("COMMIT");
+    res.redirect(303, `/records/${result.rows[0].id}`);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/records/:id/edit", async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+  try {
+    const [userResult, recordResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT r.id, r.title, r.artist_id, r.release_year, r.format,
+                r.genre, r.condition, r.price_paid, r.purchase_date,
+                r.rating, r.notes, a.name AS artist_name
+         FROM records r
+         JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         WHERE r.id = $1 AND r.user_id = $2`,
+        [recordId, req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    if (!recordResult.rowCount) return notFound(res);
+    res.type("html").send(recordFormPage({
+      mode: "edit",
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      record: recordResult.rows[0],
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/records/:id/edit", requireCsrf, async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+  const values = recordValues(req.body);
+  const client = await pool.connect();
+  try {
+    await client.query("BEGIN");
+    const ownedRecord = await client.query(
+      "SELECT id FROM records WHERE id = $1 AND user_id = $2 FOR UPDATE",
+      [recordId, req.session.userId],
+    );
+    if (!ownedRecord.rowCount) {
+      await client.query("ROLLBACK");
+      return notFound(res);
+    }
+    const artistId = await findOrCreateArtist(
+      client,
+      req.session.userId,
+      values.artistName,
+    );
+    await client.query(
+      `UPDATE records
+       SET artist_id = $1, title = $2, release_year = $3, format = $4,
+           genre = $5, condition = $6, price_paid = $7, purchase_date = $8,
+           rating = $9, notes = $10
+       WHERE id = $11 AND user_id = $12`,
+      [
+        artistId,
+        values.title,
+        values.releaseYear,
+        values.format,
+        values.genre,
+        values.condition,
+        values.pricePaid,
+        values.purchaseDate,
+        values.rating,
+        values.notes,
+        recordId,
+        req.session.userId,
+      ],
+    );
+    await client.query("COMMIT");
+    res.redirect(303, `/records/${recordId}`);
+  } catch (error) {
+    await client.query("ROLLBACK").catch(() => {});
+    next(error);
+  } finally {
+    client.release();
+  }
+});
+
+app.get("/records/:id/delete", async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+  try {
+    const [userResult, recordResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        "SELECT id, title FROM records WHERE id = $1 AND user_id = $2",
+        [recordId, req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    if (!recordResult.rowCount) return notFound(res);
+    res.type("html").send(recordDeletePage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      record: recordResult.rows[0],
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/records/:id/delete", requireCsrf, async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+  try {
+    const result = await pool.query(
+      "DELETE FROM records WHERE id = $1 AND user_id = $2 RETURNING id",
+      [recordId, req.session.userId],
+    );
+    if (!result.rowCount) return notFound(res);
+    res.redirect(303, "/collection");
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/records/:id", async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+  try {
+    const [userResult, recordResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT r.id, r.title, r.release_year, r.format, r.genre,
+                r.condition, r.price_paid, r.purchase_date, r.rating,
+                r.notes, r.created_at, a.id AS artist_id,
+                a.name AS artist_name
+         FROM records r
+         JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         WHERE r.id = $1 AND r.user_id = $2`,
+        [recordId, req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    if (!recordResult.rowCount) return notFound(res);
+    res.type("html").send(recordDetailPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      record: recordResult.rows[0],
     }));
   } catch (error) {
     next(error);
