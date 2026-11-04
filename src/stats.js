@@ -21,15 +21,20 @@ function computeStats(records) {
 
     const providedGenre = typeof record.genre === "string" ? record.genre.trim() : "";
     const genre = providedGenre || "Unspecified";
-    genreCounts.set(genre, (genreCounts.get(genre) || 0) + 1);
+    const key = genre.toLowerCase();
+    const existing = genreCounts.get(key);
+    if (existing) {
+      existing.count += 1;
+    } else {
+      genreCounts.set(key, { genre, count: 1 });
+    }
   }
 
   return {
     totalRecords: records.length,
     totalSpent: totalCents / 100,
     averageRating: ratingCount ? ratingTotal / ratingCount : null,
-    genreCounts: [...genreCounts.entries()]
-      .map(([genre, count]) => ({ genre, count }))
+    genreCounts: [...genreCounts.values()]
       .sort((left, right) => right.count - left.count || left.genre.localeCompare(right.genre)),
   };
 }

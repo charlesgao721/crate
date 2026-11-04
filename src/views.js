@@ -186,7 +186,7 @@ function recordCard(record, { csrfToken, returnTo, wishlistMode = false }) {
 
 function collectionFilterForm({ filters, genreOptions, formatOptions }) {
   const genres = genreOptions.map((genre) => (
-    `<option value="${escapeHtml(genre)}"${filters.genre === genre ? " selected" : ""}>${escapeHtml(genre)}</option>`
+    `<option value="${escapeHtml(genre)}"${filters.genre.toLowerCase() === genre.toLowerCase() ? " selected" : ""}>${escapeHtml(genre)}</option>`
   )).join("");
   const formats = formatOptions.map((format) => (
     `<option value="${escapeHtml(format)}"${filters.format === format ? " selected" : ""}>${escapeHtml(format)}</option>`
@@ -370,7 +370,7 @@ function dashboardPage({ displayName, csrfToken, stats }) {
 
 function spinPage({ displayName, csrfToken, genres, selectedGenre, record }) {
   const genreOptions = genres.map((genre) => (
-    `<option value="${escapeHtml(genre)}"${selectedGenre === genre ? " selected" : ""}>${escapeHtml(genre)}</option>`
+    `<option value="${escapeHtml(genre)}"${selectedGenre.toLowerCase() === genre.toLowerCase() ? " selected" : ""}>${escapeHtml(genre)}</option>`
   )).join("");
   const recordGenre = typeof record?.genre === "string" && record.genre.trim()
     ? record.genre.trim()

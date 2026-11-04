@@ -190,6 +190,21 @@ async function findOrCreateArtist(client, userId, artistName) {
   return result.rows[0].id;
 }
 
+async function findOrReuseGenre(client, userId, genre) {
+  if (!genre) return null;
+  const result = await client.query(
+    `SELECT BTRIM(genre) AS genre
+     FROM records
+     WHERE user_id = $1
+       AND genre IS NOT NULL
+       AND LOWER(BTRIM(genre)) = LOWER($2)
+     ORDER BY id
+     LIMIT 1`,
+    [userId, genre],
+  );
+  return result.rows[0]?.genre ?? genre;
+}
+
 function notFound(res) {
   return res.status(404).type("text").send("not found");
 }
@@ -356,18 +371,18 @@ app.get("/collection", async (req, res, next) => {
              OR POSITION(LOWER($2) IN LOWER(r.title)) > 0
              OR POSITION(LOWER($2) IN LOWER(a.name)) > 0
            )
-           AND ($3::text IS NULL OR r.genre = $3)
+            AND ($3::text IS NULL OR LOWER(BTRIM(r.genre)) = LOWER($3))
            AND ($4::text IS NULL OR r.format = $4)
          ORDER BY ${collectionSortOrders[sort]}`,
         [req.session.userId, search || null, genre || null, format || null],
       ),
       pool.query(
-        `SELECT genre
+         `SELECT MIN(BTRIM(genre)) AS genre
          FROM records
           WHERE user_id = $1 AND is_wishlist = FALSE
             AND genre IS NOT NULL AND BTRIM(genre) <> ''
-         GROUP BY genre
-         ORDER BY LOWER(genre), genre`,
+         GROUP BY LOWER(BTRIM(genre))
+         ORDER BY LOWER(MIN(BTRIM(genre))), MIN(BTRIM(genre))`,
         [req.session.userId],
       ),
       pool.query(
@@ -498,7 +513,10 @@ app.get("/dashboard", async (req, res, next) => {
         [req.session.userId],
       ),
       pool.query(
-        "SELECT genre, price_paid, rating FROM records WHERE user_id = $1 AND is_wishlist = FALSE",
+        `SELECT genre, price_paid, rating
+         FROM records
+         WHERE user_id = $1 AND is_wishlist = FALSE
+         ORDER BY LOWER(BTRIM(genre)) NULLS FIRST, id`,
         [req.session.userId],
       ),
     ]);
@@ -527,12 +545,12 @@ app.get("/spin", async (req, res, next) => {
         [req.session.userId],
       ),
       pool.query(
-        `SELECT genre
+        `SELECT MIN(BTRIM(genre)) AS genre
          FROM records
          WHERE user_id = $1 AND is_wishlist = FALSE
            AND genre IS NOT NULL AND BTRIM(genre) <> ''
-         GROUP BY genre
-         ORDER BY LOWER(genre), genre`,
+         GROUP BY LOWER(BTRIM(genre))
+         ORDER BY LOWER(MIN(BTRIM(genre))), MIN(BTRIM(genre))`,
         [req.session.userId],
       ),
       pool.query(
@@ -541,7 +559,7 @@ app.get("/spin", async (req, res, next) => {
          FROM records r
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
          WHERE r.user_id = $1 AND r.is_wishlist = FALSE
-           AND ($2::text IS NULL OR r.genre = $2)
+           AND ($2::text IS NULL OR LOWER(BTRIM(r.genre)) = LOWER($2))
          ORDER BY RANDOM()
          LIMIT 1`,
         [req.session.userId, selectedGenre || null],
@@ -599,6 +617,7 @@ app.post("/records", requireCsrf, async (req, res, next) => {
       req.session.userId,
       values.artistName,
     );
+    values.genre = await findOrReuseGenre(client, req.session.userId, values.genre);
     const result = await client.query(
       `INSERT INTO records
         (user_id, artist_id, title, release_year, format, genre, condition,
@@ -702,6 +721,7 @@ app.post("/records/:id/edit", requireCsrf, async (req, res, next) => {
       req.session.userId,
       values.artistName,
     );
+    values.genre = await findOrReuseGenre(client, req.session.userId, values.genre);
     await client.query(
       `UPDATE records
        SET artist_id = $1, title = $2, release_year = $3, format = $4,
