@@ -11,6 +11,7 @@ const {
   authPage,
   collectionPage,
   starredPage,
+  wishlistPage,
   dashboardPage,
   spinPage,
   artistsPage,
@@ -137,6 +138,7 @@ function recordFormValues(body = {}) {
     purchaseDate: typeof body.purchaseDate === "string" ? body.purchaseDate : "",
     rating: typeof body.rating === "string" ? body.rating : "",
     notes: typeof body.notes === "string" ? body.notes : "",
+    isWishlist: body.isWishlist === "true" || body.isWishlist === "on",
   };
 }
 
@@ -152,6 +154,7 @@ function recordDatabaseValues(formValues) {
     purchaseDate: formValues.purchaseDate.trim() || null,
     rating: formValues.rating.trim() ? Number(formValues.rating) : null,
     notes: formValues.notes.trim() || null,
+    isWishlist: formValues.isWishlist,
   };
 }
 
@@ -347,6 +350,7 @@ app.get("/collection", async (req, res, next) => {
            WHERE p.user_id = $1 AND p.record_id = r.id
          ) play_counts ON TRUE
          WHERE r.user_id = $1
+           AND r.is_wishlist = FALSE
            AND (
              $2::text IS NULL
              OR POSITION(LOWER($2) IN LOWER(r.title)) > 0
@@ -360,7 +364,8 @@ app.get("/collection", async (req, res, next) => {
       pool.query(
         `SELECT genre
          FROM records
-         WHERE user_id = $1 AND genre IS NOT NULL AND BTRIM(genre) <> ''
+          WHERE user_id = $1 AND is_wishlist = FALSE
+            AND genre IS NOT NULL AND BTRIM(genre) <> ''
          GROUP BY genre
          ORDER BY LOWER(genre), genre`,
         [req.session.userId],
@@ -368,7 +373,8 @@ app.get("/collection", async (req, res, next) => {
       pool.query(
         `SELECT format
          FROM records
-         WHERE user_id = $1 AND format IS NOT NULL AND BTRIM(format) <> ''
+          WHERE user_id = $1 AND is_wishlist = FALSE
+            AND format IS NOT NULL AND BTRIM(format) <> ''
          GROUP BY format
          ORDER BY LOWER(format), format`,
         [req.session.userId],
@@ -428,6 +434,62 @@ app.get("/starred", async (req, res, next) => {
   }
 });
 
+app.get("/wishlist", async (req, res, next) => {
+  try {
+    const [userResult, recordsResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT r.id, r.title, r.release_year, r.rating,
+                a.id AS artist_id, a.name AS artist_name,
+                (s.id IS NOT NULL) AS is_starred,
+                play_counts.play_count AS play_count
+         FROM records r
+         JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
+         LEFT JOIN stars s ON s.record_id = r.id AND s.user_id = $1
+         LEFT JOIN LATERAL (
+           SELECT COUNT(*)::int AS play_count
+           FROM plays p
+           WHERE p.user_id = $1 AND p.record_id = r.id
+         ) play_counts ON TRUE
+         WHERE r.user_id = $1 AND r.is_wishlist = TRUE
+         ORDER BY r.created_at DESC, r.id DESC`,
+        [req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    res.type("html").send(wishlistPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      records: recordsResult.rows,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/records/:id/wishlist/got", requireCsrf, async (req, res, next) => {
+  const recordId = Number(req.params.id);
+  if (!Number.isSafeInteger(recordId) || recordId < 1) return notFound(res);
+  try {
+    const result = await pool.query(
+      `UPDATE records
+       SET is_wishlist = FALSE
+       WHERE id = $1 AND user_id = $2 AND is_wishlist = TRUE
+       RETURNING id`,
+      [recordId, req.session.userId],
+    );
+    if (!result.rowCount) return notFound(res);
+    res.redirect(303, "/collection");
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.get("/dashboard", async (req, res, next) => {
   try {
     const [userResult, recordsResult] = await Promise.all([
@@ -436,7 +498,7 @@ app.get("/dashboard", async (req, res, next) => {
         [req.session.userId],
       ),
       pool.query(
-        "SELECT genre, price_paid, rating FROM records WHERE user_id = $1",
+        "SELECT genre, price_paid, rating FROM records WHERE user_id = $1 AND is_wishlist = FALSE",
         [req.session.userId],
       ),
     ]);
@@ -467,7 +529,8 @@ app.get("/spin", async (req, res, next) => {
       pool.query(
         `SELECT genre
          FROM records
-         WHERE user_id = $1 AND genre IS NOT NULL AND BTRIM(genre) <> ''
+         WHERE user_id = $1 AND is_wishlist = FALSE
+           AND genre IS NOT NULL AND BTRIM(genre) <> ''
          GROUP BY genre
          ORDER BY LOWER(genre), genre`,
         [req.session.userId],
@@ -477,7 +540,7 @@ app.get("/spin", async (req, res, next) => {
                 a.name AS artist_name
          FROM records r
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
-         WHERE r.user_id = $1
+         WHERE r.user_id = $1 AND r.is_wishlist = FALSE
            AND ($2::text IS NULL OR r.genre = $2)
          ORDER BY RANDOM()
          LIMIT 1`,
@@ -539,8 +602,8 @@ app.post("/records", requireCsrf, async (req, res, next) => {
     const result = await client.query(
       `INSERT INTO records
         (user_id, artist_id, title, release_year, format, genre, condition,
-         price_paid, purchase_date, rating, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+         price_paid, purchase_date, rating, notes, is_wishlist)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING id`,
       [
         req.session.userId,
@@ -554,6 +617,7 @@ app.post("/records", requireCsrf, async (req, res, next) => {
         values.purchaseDate,
         values.rating,
         values.notes,
+        values.isWishlist,
       ],
     );
     await client.query("COMMIT");
@@ -578,7 +642,7 @@ app.get("/records/:id/edit", async (req, res, next) => {
       pool.query(
         `SELECT r.id, r.title, r.artist_id, r.release_year, r.format,
                 r.genre, r.condition, r.price_paid, r.purchase_date,
-                r.rating, r.notes, a.name AS artist_name
+                r.rating, r.notes, r.is_wishlist, a.name AS artist_name
          FROM records r
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
          WHERE r.id = $1 AND r.user_id = $2`,
@@ -642,8 +706,8 @@ app.post("/records/:id/edit", requireCsrf, async (req, res, next) => {
       `UPDATE records
        SET artist_id = $1, title = $2, release_year = $3, format = $4,
            genre = $5, condition = $6, price_paid = $7, purchase_date = $8,
-           rating = $9, notes = $10
-       WHERE id = $11 AND user_id = $12`,
+           rating = $9, notes = $10, is_wishlist = $11
+       WHERE id = $12 AND user_id = $13`,
       [
         artistId,
         values.title,
@@ -655,6 +719,7 @@ app.post("/records/:id/edit", requireCsrf, async (req, res, next) => {
         values.purchaseDate,
         values.rating,
         values.notes,
+        values.isWishlist,
         recordId,
         req.session.userId,
       ],
