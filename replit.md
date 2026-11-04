@@ -13,11 +13,13 @@
 
 ## Database
 
-The development PostgreSQL database has the schema in `db/schema.sql`. It contains the `users` table for feature 1 and the PostgreSQL-backed `session` table used for login sessions.
+The development PostgreSQL database has the schema in `db/schema.sql`. It contains `users` and the PostgreSQL-backed `session` table for feature 1, plus the `artists` and `records` tables for feature 2. Records are tied to their artist and user; the composite foreign key prevents a record from being assigned to another user's artist.
 
 ## Authentication routes
 
 - `/signup` creates an account.
 - `/login` starts a session.
 - `/collection` is protected and shows the signed-in user's empty collection.
+- `/artists` lists the signed-in user's artists.
+- `/artists/:id` shows that artist and their records; requests for another user's artist return 404.
 - `POST /logout` ends the session.

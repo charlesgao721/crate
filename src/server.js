@@ -5,7 +5,12 @@ const session = require("express-session");
 const connectPgSimple = require("connect-pg-simple");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
-const { authPage, collectionPage } = require("./views");
+const {
+  authPage,
+  collectionPage,
+  artistsPage,
+  artistDetailPage,
+} = require("./views");
 
 const requiredEnvironment = ["DATABASE_URL", "SESSION_SECRET"];
 for (const name of requiredEnvironment) {
@@ -231,6 +236,73 @@ app.get("/collection", async (req, res, next) => {
     res.type("html").send(collectionPage({
       displayName: result.rows[0].display_name,
       csrfToken: csrfToken(req),
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/artists", async (req, res, next) => {
+  try {
+    const [userResult, artistsResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        "SELECT id, name, country FROM artists WHERE user_id = $1 ORDER BY name ASC, id ASC",
+        [req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    res.type("html").send(artistsPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      artists: artistsResult.rows,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/artists/:id", async (req, res, next) => {
+  const artistId = Number(req.params.id);
+  if (!Number.isSafeInteger(artistId) || artistId < 1) {
+    return res.status(404).type("text").send("not found");
+  }
+
+  try {
+    const [userResult, artistResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        "SELECT id, name, country FROM artists WHERE id = $1 AND user_id = $2",
+        [artistId, req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    if (!artistResult.rowCount) {
+      return res.status(404).type("text").send("not found");
+    }
+
+    const recordsResult = await pool.query(
+      `SELECT id, title, release_year, format, genre, condition
+       FROM records
+       WHERE user_id = $1 AND artist_id = $2
+       ORDER BY created_at DESC, id DESC`,
+      [req.session.userId, artistId],
+    );
+    res.type("html").send(artistDetailPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      artist: artistResult.rows[0],
+      records: recordsResult.rows,
     }));
   } catch (error) {
     next(error);
