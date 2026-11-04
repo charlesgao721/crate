@@ -6,10 +6,12 @@ const connectPgSimple = require("connect-pg-simple");
 const { Pool } = require("pg");
 const bcrypt = require("bcrypt");
 const validateRecord = require("../public/record-validation");
+const { computeStats } = require("./stats");
 const {
   authPage,
   collectionPage,
   starredPage,
+  dashboardPage,
   artistsPage,
   artistDetailPage,
   recordFormPage,
@@ -400,6 +402,31 @@ app.get("/starred", async (req, res, next) => {
       displayName: userResult.rows[0].display_name,
       csrfToken: csrfToken(req),
       records: recordsResult.rows,
+    }));
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/dashboard", async (req, res, next) => {
+  try {
+    const [userResult, recordsResult] = await Promise.all([
+      pool.query(
+        "SELECT display_name FROM users WHERE id = $1",
+        [req.session.userId],
+      ),
+      pool.query(
+        "SELECT genre, price_paid, rating FROM records WHERE user_id = $1",
+        [req.session.userId],
+      ),
+    ]);
+    if (!userResult.rowCount) {
+      return req.session.destroy(() => res.redirect(303, "/login"));
+    }
+    res.type("html").send(dashboardPage({
+      displayName: userResult.rows[0].display_name,
+      csrfToken: csrfToken(req),
+      stats: computeStats(recordsResult.rows),
     }));
   } catch (error) {
     next(error);
