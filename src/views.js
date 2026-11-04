@@ -124,6 +124,7 @@ function appHeader({ displayName, csrfToken, activePage = "" }) {
   const artistsActive = activePage === "artists" ? " nav-link-active" : "";
   const starredActive = activePage === "starred" ? " nav-link-active" : "";
   const dashboardActive = activePage === "dashboard" ? " nav-link-active" : "";
+  const spinActive = activePage === "spin" ? " nav-link-active" : "";
   return `<header class="site-header">
     ${brand({ compact: true })}
     <nav class="main-nav" aria-label="Main navigation">
@@ -131,6 +132,7 @@ function appHeader({ displayName, csrfToken, activePage = "" }) {
       <a class="nav-link${artistsActive}" href="/artists">Artists</a>
       <a class="nav-link${starredActive}" href="/starred">Starred</a>
       <a class="nav-link${dashboardActive}" href="/dashboard">Dashboard</a>
+      <a class="nav-link spin-nav-link${spinActive}" href="/spin" aria-label="What should I spin tonight?" title="What should I spin tonight?"><span class="spin-nav-full">What should I spin tonight?</span><span class="spin-nav-short" aria-hidden="true">Spin</span></a>
     </nav>
     <div class="header-right">
       <span class="header-greeting">Hi, ${escapeHtml(displayName)}</span>
@@ -341,6 +343,67 @@ function dashboardPage({ displayName, csrfToken, stats }) {
           </div>
           ${genreChart}
         </section>
+        <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
+      </main>`,
+  });
+}
+
+function spinPage({ displayName, csrfToken, genres, selectedGenre, record }) {
+  const genreOptions = genres.map((genre) => (
+    `<option value="${escapeHtml(genre)}"${selectedGenre === genre ? " selected" : ""}>${escapeHtml(genre)}</option>`
+  )).join("");
+  const recordGenre = typeof record?.genre === "string" && record.genre.trim()
+    ? record.genre.trim()
+    : "Unspecified";
+  const genreFilter = `<form class="spin-genre-form" method="get" action="/spin">
+    <label class="spin-genre-field">
+      <span>Choose a genre</span>
+      <select name="genre">
+        <option value="">Any genre</option>
+        ${genreOptions}
+      </select>
+    </label>
+    <button class="button button-secondary" type="submit">Pick from genre</button>
+  </form>`;
+  const result = record
+    ? `<article class="spin-result-card">
+        <div class="spin-record-art" aria-hidden="true"><span></span></div>
+        <div class="spin-result-copy">
+          <p class="eyebrow">YOUR NEXT LISTEN</p>
+          <h2 class="spin-result-title"><a href="/records/${escapeHtml(record.id)}">${escapeHtml(record.title)}</a></h2>
+          <p class="spin-result-artist">by ${escapeHtml(record.artist_name)}</p>
+          <dl class="spin-result-details">
+            <div><dt>Year</dt><dd>${record.release_year === null || record.release_year === undefined ? "—" : escapeHtml(record.release_year)}</dd></div>
+            <div><dt>Genre</dt><dd>${escapeHtml(recordGenre)}</dd></div>
+            <div><dt>Rating</dt><dd>${record.rating === null || record.rating === undefined ? "Not rated" : `${escapeHtml(record.rating)} / 5`}</dd></div>
+          </dl>
+          <div class="spin-result-actions">
+            <a class="button button-primary" href="/records/${escapeHtml(record.id)}">View record</a>
+            <form method="get" action="/spin">
+              ${selectedGenre ? `<input type="hidden" name="genre" value="${escapeHtml(selectedGenre)}">` : ""}
+              <button class="button button-secondary" type="submit">Pick again <span aria-hidden="true">↻</span></button>
+            </form>
+          </div>
+        </div>
+      </article>`
+    : `<section class="spin-empty" aria-live="polite">
+        <div class="spin-empty-mark" aria-hidden="true">↻</div>
+        <h2>${selectedGenre ? `No records in ${escapeHtml(selectedGenre)} yet.` : "Your collection is empty."}</h2>
+        <p>${selectedGenre ? "Choose another genre or add a record to your collection." : "Add a record to your collection, then come back for a random pick."}</p>
+      </section>`;
+
+  return page({
+    title: "What should I spin tonight?",
+    pageClass: "spin-page",
+    body: `${appHeader({ displayName, csrfToken, activePage: "spin" })}
+      <main class="spin-main">
+        <div class="spin-heading">
+          <p class="eyebrow">LET CRATE CHOOSE</p>
+          <h1>What should I spin tonight?</h1>
+          <p>A random pick from your collection, ready for the turntable.</p>
+        </div>
+        ${genreFilter}
+        ${result}
         <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
       </main>`,
   });
@@ -637,6 +700,7 @@ module.exports = {
   collectionPage,
   starredPage,
   dashboardPage,
+  spinPage,
   artistsPage,
   artistDetailPage,
   recordFormPage,
