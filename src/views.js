@@ -170,13 +170,90 @@ function recordCard(record, { csrfToken, returnTo }) {
   </article>`;
 }
 
-function collectionPage({ displayName, csrfToken, records, pageMode = "collection" }) {
+function collectionFilterForm({ filters, genreOptions, formatOptions }) {
+  const genres = genreOptions.map((genre) => (
+    `<option value="${escapeHtml(genre)}"${filters.genre === genre ? " selected" : ""}>${escapeHtml(genre)}</option>`
+  )).join("");
+  const formats = formatOptions.map((format) => (
+    `<option value="${escapeHtml(format)}"${filters.format === format ? " selected" : ""}>${escapeHtml(format)}</option>`
+  )).join("");
+  const sortOptions = [
+    ["newest", "Newest added"],
+    ["rating", "Highest rated"],
+    ["year", "Release year"],
+    ["price", "Price paid"],
+  ];
+
+  return `<form class="collection-filters" method="get" action="/collection" role="search">
+    <label class="collection-filter-field collection-filter-search">
+      <span>Search title or artist</span>
+      <input type="search" name="q" value="${escapeHtml(filters.q)}" placeholder="Search your records">
+    </label>
+    <label class="collection-filter-field">
+      <span>Genre</span>
+      <select name="genre">
+        <option value="">All genres</option>
+        ${genres}
+      </select>
+    </label>
+    <label class="collection-filter-field">
+      <span>Format</span>
+      <select name="format">
+        <option value="">All formats</option>
+        ${formats}
+      </select>
+    </label>
+    <label class="collection-filter-field">
+      <span>Sort by</span>
+      <select name="sort">
+        ${sortOptions.map(([value, label]) => `<option value="${value}"${filters.sort === value ? " selected" : ""}>${label}</option>`).join("")}
+      </select>
+    </label>
+    <div class="collection-filter-actions">
+      <button class="button button-primary" type="submit">Apply</button>
+      <a class="button button-secondary" href="/collection">Clear</a>
+    </div>
+  </form>`;
+}
+
+function collectionPage({
+  displayName,
+  csrfToken,
+  records,
+  pageMode = "collection",
+  filters = {},
+  genreOptions = [],
+  formatOptions = [],
+}) {
   const isStarredPage = pageMode === "starred";
   const heading = isStarredPage ? "Starred" : "My Collection";
-  const returnTo = isStarredPage ? "/starred" : "/collection";
+  const hasCriteria = Boolean(filters.q || filters.genre || filters.format);
+  const collectionParams = new URLSearchParams();
+  if (filters.q) collectionParams.set("q", filters.q);
+  if (filters.genre) collectionParams.set("genre", filters.genre);
+  if (filters.format) collectionParams.set("format", filters.format);
+  if (filters.sort && filters.sort !== "newest") collectionParams.set("sort", filters.sort);
+  const collectionQuery = collectionParams.toString();
+  const returnTo = isStarredPage
+    ? "/starred"
+    : collectionQuery
+      ? `/collection?${collectionQuery}`
+      : "/collection";
+  const countSummary = isStarredPage
+    ? `${records.length} ${records.length === 1 ? "record" : "records"} starred`
+    : hasCriteria
+      ? `${records.length} ${records.length === 1 ? "match" : "matches"}`
+      : `${records.length} ${records.length === 1 ? "record" : "records"} in your collection`;
+  const filtersMarkup = isStarredPage
+    ? ""
+    : collectionFilterForm({ filters, genreOptions, formatOptions });
   const content = records.length
     ? `<div class="record-grid">${records.map((record) => recordCard(record, { csrfToken, returnTo })).join("")}</div>`
-    : `<section class="empty-state" aria-labelledby="empty-title">
+    : !isStarredPage && hasCriteria
+      ? `<section class="empty-state search-empty" aria-live="polite">
+          <h2>No records match your search.</h2>
+        </section>`
+      : `<section class="empty-state" aria-labelledby="empty-title">
         <div class="empty-record" aria-hidden="true"><span></span></div>
         <p class="eyebrow">${isStarredPage ? "KEEP YOUR FAVORITES CLOSE" : "THE FIRST GROOVE"}</p>
         <h2 id="empty-title">${isStarredPage ? "No starred records yet." : "Your shelves are waiting."}</h2>
@@ -192,10 +269,11 @@ function collectionPage({ displayName, csrfToken, records, pageMode = "collectio
         <div class="collection-title-group">
           <p class="eyebrow">${isStarredPage ? "YOUR GO-TO RECORDS" : "YOUR RECORDS, ALL IN ONE PLACE"}</p>
           <h1>${heading}<span class="heading-period">.</span></h1>
-          <p class="collection-intro">${records.length} ${records.length === 1 ? "record" : "records"} ${isStarredPage ? "starred" : "in your collection"}</p>
+          <p class="collection-intro">${countSummary}</p>
         </div>
         ${isStarredPage ? "" : `<a class="button button-primary add-record-button" href="/records/new">Add record <span aria-hidden="true">+</span></a>`}
       </div>
+      ${filtersMarkup}
       ${content}
       <footer class="collection-footer">CRATE <span>·</span> A HOME FOR YOUR RECORDS</footer>
     </main>`,

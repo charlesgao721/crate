@@ -28,6 +28,13 @@ const app = express();
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 const PgSession = connectPgSimple(session);
 const sessionCookieName = "crate.sid";
+// Only these fixed ORDER BY fragments are interpolated; request values stay bound.
+const collectionSortOrders = Object.freeze({
+  newest: "r.created_at DESC, r.id DESC",
+  rating: "r.rating DESC NULLS LAST, r.created_at DESC, r.id DESC",
+  year: "r.release_year DESC NULLS LAST, r.created_at DESC, r.id DESC",
+  price: "r.price_paid DESC NULLS LAST, r.created_at DESC, r.id DESC",
+});
 const dummyPasswordHash = bcrypt.hashSync(crypto.randomBytes(32).toString("hex"), 12);
 
 app.set("trust proxy", 1);
@@ -302,8 +309,16 @@ app.post("/login", requireCsrf, async (req, res, next) => {
 app.use(requireAuth);
 
 app.get("/collection", async (req, res, next) => {
+  const search = typeof req.query.q === "string" ? req.query.q.trim() : "";
+  const genre = typeof req.query.genre === "string" ? req.query.genre.trim() : "";
+  const format = typeof req.query.format === "string" ? req.query.format.trim() : "";
+  const requestedSort = typeof req.query.sort === "string" ? req.query.sort : "";
+  const sort = Object.prototype.hasOwnProperty.call(collectionSortOrders, requestedSort)
+    ? requestedSort
+    : "newest";
+
   try {
-    const [userResult, recordsResult] = await Promise.all([
+    const [userResult, recordsResult, genresResult, formatsResult] = await Promise.all([
       pool.query(
         "SELECT display_name FROM users WHERE id = $1",
         [req.session.userId],
@@ -316,7 +331,30 @@ app.get("/collection", async (req, res, next) => {
          JOIN artists a ON a.id = r.artist_id AND a.user_id = r.user_id
          LEFT JOIN stars s ON s.record_id = r.id AND s.user_id = $1
          WHERE r.user_id = $1
-         ORDER BY r.created_at DESC, r.id DESC`,
+           AND (
+             $2::text IS NULL
+             OR POSITION(LOWER($2) IN LOWER(r.title)) > 0
+             OR POSITION(LOWER($2) IN LOWER(a.name)) > 0
+           )
+           AND ($3::text IS NULL OR r.genre = $3)
+           AND ($4::text IS NULL OR r.format = $4)
+         ORDER BY ${collectionSortOrders[sort]}`,
+        [req.session.userId, search || null, genre || null, format || null],
+      ),
+      pool.query(
+        `SELECT genre
+         FROM records
+         WHERE user_id = $1 AND genre IS NOT NULL AND BTRIM(genre) <> ''
+         GROUP BY genre
+         ORDER BY LOWER(genre), genre`,
+        [req.session.userId],
+      ),
+      pool.query(
+        `SELECT format
+         FROM records
+         WHERE user_id = $1 AND format IS NOT NULL AND BTRIM(format) <> ''
+         GROUP BY format
+         ORDER BY LOWER(format), format`,
         [req.session.userId],
       ),
     ]);
@@ -327,6 +365,9 @@ app.get("/collection", async (req, res, next) => {
       displayName: userResult.rows[0].display_name,
       csrfToken: csrfToken(req),
       records: recordsResult.rows,
+      filters: { q: search, genre, format, sort },
+      genreOptions: genresResult.rows.map((row) => row.genre),
+      formatOptions: formatsResult.rows.map((row) => row.format),
     }));
   } catch (error) {
     next(error);
@@ -571,11 +612,19 @@ app.post("/records/:id/star", requireCsrf, async (req, res, next) => {
     await client.query("COMMIT");
 
     const requestedReturn = req.body.returnTo;
-    const returnPath = requestedReturn === "/collection"
-      || requestedReturn === "/starred"
-      || requestedReturn === `/records/${recordId}`
-      ? requestedReturn
-      : `/records/${recordId}`;
+    let returnPath = `/records/${recordId}`;
+    if (requestedReturn === "/starred" || requestedReturn === `/records/${recordId}`) {
+      returnPath = requestedReturn;
+    } else if (typeof requestedReturn === "string") {
+      try {
+        const returnUrl = new URL(requestedReturn, "http://crate.local");
+        if (returnUrl.origin === "http://crate.local" && returnUrl.pathname === "/collection") {
+          returnPath = `${returnUrl.pathname}${returnUrl.search}`;
+        }
+      } catch {
+        // Keep the safe record-detail fallback for malformed return paths.
+      }
+    }
     res.redirect(303, returnPath);
   } catch (error) {
     await client.query("ROLLBACK").catch(() => {});
